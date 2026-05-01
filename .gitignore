@@ -1,0 +1,6 @@
+.DS_Store
+*.swp
+.idea/
+.vscode/
+sanitize.sh
+sanitize2.sh

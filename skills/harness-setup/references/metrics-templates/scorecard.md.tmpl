@@ -1,0 +1,36 @@
+# Harness Metrics Scorecard — {project_name}
+
+> 자동 생성: /harness-setup
+> 갱신: `bash .claude/runtime/harness-metrics/aggregate.sh`
+
+## Summary
+
+| 지표 | 값 | 합격선 | 상태 |
+|------|-----|-------|------|
+| **Total runs (n)** | 0 | >= 5 | ⏳ |
+| **Scored runs** | 0 | >= 3 | ⏳ |
+| **Catch rate** | — | >= 60% | ⏳ |
+| **FP rate** | — | <= 40% | ⏳ |
+| **Shadow runs** | 0 | >= 1 | ⏳ |
+
+## Go/No-go (4주 후 판정)
+
+- [ ] n >= 5 실전 실행
+- [ ] Shadow run >= 1회
+- [ ] Catch rate >= 60%
+- [ ] FP rate <= 40%
+- [ ] Scored runs >= 3건
+
+## 판정 매트릭스
+
+| 조건 | 결정 |
+|------|------|
+| 위 5개 중 4+ 충족 | Tier 2 진입 + HARNESS_MODE=auto |
+| 3개 충족 | Suggest 유지, 축소 검토 |
+| 2개 이하 | Harness 폐기 검토 |
+
+## 다음 행동
+
+- 실전 이슈 5개 투입 필요
+- Shadow run 1회 이상 필요 (/harness-shadow)
+- 머지 7일+ 경과 이슈에 /harness-score 실행
