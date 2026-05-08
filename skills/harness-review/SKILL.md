@@ -37,19 +37,19 @@ git diff --name-only --cached  # staged
 
 ### Step 2. 프로젝트별 Dispatch Rule 적용
 
-#### catalog-service (Spring Boot)
+#### app-ha-back (Spring Boot)
 
 | 변경 파일 패턴 | 담당 에이전트 |
 |---------------|-------------|
-| `**/entity/**/*.java` | `catalog-jpa-reviewer` |
-| `**/repository/**/*.java`, `**/*Repository*.java` | `catalog-jpa-reviewer` |
-| `**/service/*ReadService.java`, `**/service/*WriteService.java` | `catalog-cqrs-refactorer` (판단만) |
-| `Visit*.java`, `Broken*.java`, `OrderReport*.java` | `catalog-price-bifurcation-guard` |
-| `**/SecurityConfig*.java`, `**/filter/**/*.java` | `catalog-security-reviewer` |
-| `**/test/**/*.java` | `catalog-test-writer` (패턴 리뷰) |
+| `**/entity/**/*.java` | `haback-jpa-reviewer` |
+| `**/repository/**/*.java`, `**/*Repository*.java` | `haback-jpa-reviewer` |
+| `**/service/*ReadService.java`, `**/service/*WriteService.java` | `haback-cqrs-refactorer` (판단만) |
+| `Visit*.java`, `Broken*.java`, `RepairReport*.java` | `haback-price-bifurcation-guard` |
+| `**/SecurityConfig*.java`, `**/filter/**/*.java` | `haback-security-reviewer` |
+| `**/test/**/*.java` | `haback-test-writer` (패턴 리뷰) |
 | 모든 .java 변경 | 기존 verify-* 스킬 (해당되는 것만) |
 
-#### order-service (Spring Boot)
+#### cs-back (Spring Boot)
 
 | 변경 파일 패턴 | 담당 에이전트 |
 |---------------|-------------|
@@ -57,22 +57,47 @@ git diff --name-only --cached  # staged
 | `**/repository/**/*.java` | `jpa-query-auditor` |
 | `**/test/**/*.java` 또는 새 Service/Controller | `test-integrity-auditor` |
 | `**/*FeignClient.java`, `**/scheduler/**`, `**/notification/**` | `integration-sentinel` |
-| 모든 코드 변경 | `order-reviewer` + `domain-trap-sentinel` (항상) |
+| 모든 코드 변경 | `cs-reviewer` + `domain-trap-sentinel` (항상) |
 
-#### order-admin (Vue 3)
+#### cs-front (Vue 3)
 
 | 변경 파일 패턴 | 담당 에이전트 |
 |---------------|-------------|
 | **Wave 1 (정적 리뷰, 항상)**: | |
-| `src/**/*.vue`, `src/**/*.js`, `src/**/*.ts` | `frontend-reviewer` |
+| `src/**/*.vue`, `src/**/*.js`, `src/**/*.ts` | `cs-front-reviewer` |
 | `src/**/*.vue` (i18n 사용) | `i18n-auditor` |
 | `src/api/**` | `api-contract-auditor` |
 | `**/*Modal*.vue`, `**/*Popup*.vue` | `modal-pattern-enforcer` |
 | `src/**/*.vue`, `src/**/*.css` | `design-token-auditor` |
 | **Wave 2 (런타임, Wave 1 Blocker 없을 때)**: | |
 | `src/views/**`, `src/components/**` | `responsive-qa-agent` |
-| 기능 AC 존재 시 | `frontend-evaluator` |
+| 기능 AC 존재 시 | `cs-front-evaluator` |
 | 디자인 AC 존재 시 | `design-verifier` |
+
+#### Flutter (예: app_v2)
+
+Flutter 앱은 도메인별 reviewer 에이전트가 잘 정의되어 있지 않을 수 있으므로, 프로젝트의 `.claude/agents/` 디렉토리를 글로빙하여 사용 가능한 에이전트를 발견하는 방식으로 동작한다.
+
+| 변경 파일 패턴 | 담당 에이전트 (있을 때만) |
+|---------------|---------------------------|
+| `lib/**/*.dart` (위젯/화면 코드) | `*-explorer` (있으면), `*-security-reviewer` (있으면) |
+| `lib/**/state/**` 또는 Riverpod/BLoC 사용 | 프로젝트 reviewer 에이전트 (있으면) |
+| `test/**/*.dart` | `*-test-writer` (있으면) |
+| `pubspec.yaml` 변경 | 메인 세션 직접 — 의존성 추가/버전 변경의 영향 평가 |
+| 모든 .dart 변경 | `*-security-reviewer` 또는 메인 세션 (CLAUDE.md의 위젯 rebuild/상태격리 규칙 기반) |
+
+도메인 에이전트가 부재한 경우 메인 세션이 dev-guide의 인수조건과 CLAUDE.md를 기반으로 직접 review한다. 이 경우 verdict는 generic하게 작성되지만 fan-out이 없어 깊이는 얕다.
+
+#### 알려지지 않은 프로젝트 (스택 fallback)
+
+cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 스택 감지(harness-plan Step 1과 동일)로 폴백한다:
+
+| 감지 스택 | 기본 dispatch |
+|----------|---------------|
+| Spring Boot 일반 | cs-back/app-ha-back과 동일 패턴 적용. 단 프로젝트별 `{prefix}-*` 에이전트가 없으면 글로벌 reviewer만 사용 |
+| Vue/React 일반 | cs-front 패턴 차용. 프로젝트 에이전트 부재 시 메인 세션이 직접 |
+| Go/Rust/Python 등 | `.claude/agents/` 글로빙으로 발견된 에이전트만 호출. 부재 시 메인 세션이 직접 |
+| unknown | 메인 세션이 직접 review (fan-out 없음, 깊이 얕음을 verdict에 명시) |
 
 ### Step 3. 에이전트 병렬 Fan-out
 
@@ -118,7 +143,7 @@ git diff --name-only --cached  # staged
 - **Tokens (approx)**: ~85k (참여 에이전트 출력 합산 추정치 — 정확한 값이 아님을 명시)
 - **Mode**: `auto` | `suggest` | `off` (HARNESS_MODE env var)
 - **Shadow Run**: Y | N (이 실행이 shadow 프로토콜의 일부였는지)
-- **Participants**: [order-reviewer, jpa-query-auditor, ...]
+- **Participants**: [cs-reviewer, jpa-query-auditor, ...]
 - **Skipped**: [agent-name (사유), ...]
 - **Target Commits**: HEAD~N..HEAD (or specific SHAs)
 
@@ -189,6 +214,20 @@ verdict + Blocker 요약 출력.
 ## 주의사항
 
 - 코드를 **절대 수정하지 않는다** (Read-only 원칙)
-- Wave 2(order-admin)는 Wave 1에 Blocker가 없을 때만 실행
+- Wave 2(cs-front)는 Wave 1에 Blocker가 없을 때만 실행
 - 에이전트 출력은 **500 토큰 이하** 요약으로 수신 (큰 내용은 파일로)
 - 기존 quality-gate/jira-test와 **간섭하지 않는다** — 병렬 존재
+
+## --subtasks Mode
+
+사용자가 `/harness-review <KEY> --subtasks` 로 호출 시:
+
+1. slice 별 verdict 가 의미 있을 때 (workspace 분리, 다른 fan-out 워커가 작성한 경우):
+   - `<runtime>/aggregate-verdict/<KEY>-<SUB-KEY>.md` 별도 파일
+   - 부모 verdict (`<runtime>/aggregate-verdict.md`) 에서 슬라이스 verdict 롤업 표 포함
+2. 단일 세션에서 통합 구현한 경우 (워커 분리 X):
+   - 부모 verdict 1장만 작성, slice 별 결과는 § "변경 사항 요약" 표에 인라인
+3. **하위 이슈에 댓글 추가하지 않음** (verdict 는 부모 산출물 — 노이즈 방지)
+4. `workflow-state.json` 의 `slice_status` 갱신 (slice 별 review-pass / iterate / escalate)
+
+자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3

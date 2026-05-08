@@ -56,7 +56,7 @@ git log --all --pretty=format:"%H %ci %s" | grep -i "PROJ-XXX\|feature/PROJ-XXX"
 사용자에게 각 Blocker마다 다음 질문:
 
 ```
-[ID: REV-001] order-reviewer — getOrdersForCustomer 고객 경로 침범
+[ID: REV-001] cs-reviewer — getRepairRequestsForCustomer 고객 경로 침범
    요지: ...
 
 이 blocker는 실제로 유효했습니까?
@@ -79,7 +79,7 @@ git log --all --pretty=format:"%H %ci %s" | grep -i "PROJ-XXX\|feature/PROJ-XXX"
 ### Step 5. Advisory 별 Actioned/Ignored 채점
 
 ```
-[ID: REV-A1] order-reviewer — excel-download 엔드포인트 @Parameter 누락
+[ID: REV-A1] cs-reviewer — excel-download 엔드포인트 @Parameter 누락
 
 이 advisory는:
   1) ACTIONED — 후속 commit/PR에서 실제로 수정
@@ -127,6 +127,19 @@ Q2. 머지 이후 Production 장애/인시던트가 있었습니까? (Y/N)
 - **FP rate (this issue)**: 50% (1 INVALID / 2 Blockers)
 - **Advisory uptake**: 33% (1 ACTIONED / 3 Advisories)
 ```
+
+### Step 7.5. INDEX.md Merge 메타 Backfill
+
+`.claude/runtime/archive/INDEX.md`에서 채점 대상 이슈의 행을 찾는다. `Merged` 컬럼이 `(pending)` 또는 비어있으면 git log로 backfill한다:
+
+```bash
+# 머지 commit + committer date 추출
+git log --all --pretty=format:"%H %ci" --grep="Merge branch 'feature/<ISSUE-KEY>'" | head -1
+```
+
+추출 결과로 INDEX.md의 해당 행 `Merged` 컬럼을 `YYYY-MM-DD (<short-sha>)` 형식으로 Edit. 머지 commit이 없으면(아직 미머지) 그대로 두고 경고만 출력.
+
+**왜 여기서 하나**: jira-complete은 머지 전이라 SHA/date를 모르고, harness-score는 정확히 7일 후 채점 시점에 호출되므로 git log에 머지 commit이 확실히 있다. 이 단계로 archive lifecycle의 머지 메타 빈칸이 자연스럽게 채워진다.
 
 ### Step 8. Scorecard 집계 트리거
 

@@ -41,7 +41,7 @@ scope가 명시되지 않으면 `full`로 간주한다.
 
 사용자가 함께 전달할 수 있는 정보. 명시되지 않은 항목은 Step 3 인터뷰에서 질문한다:
 - **mode**: HARNESS_MODE 값 (`suggest` / `auto` / `off`)
-- **prefix**: 에이전트 이름 접두사 (예: `myapp`, `cs`, `catalog`)
+- **prefix**: 에이전트 이름 접두사 (예: `myapp`, `cs`, `haback`)
 - **stack**: 기술 스택 (자동 감지 기본)
 
 ### 인터뷰 원칙
@@ -184,8 +184,8 @@ Git:      ✅ (branch: {current_branch}) / ❌
 인터뷰 답변을 반영하여 최종 접두사 결정. 사용자가 인터뷰에서 확인했으므로 추가 질문 불필요.
 
 **접두사 후보 우선순위** (사용자 미지정 시):
-1. 기존 `.claude/agents/` 파일명에서 추출 (예: `catalog-jpa-reviewer.md` → `catalog`)
-2. 프로젝트 디렉토리명 변환 (예: `catalog-service` → `catalog`, `order-admin` → `orderadmin`, `my-cool-app` → `mycoolapp`)
+1. 기존 `.claude/agents/` 파일명에서 추출 (예: `haback-jpa-reviewer.md` → `haback`)
+2. 프로젝트 디렉토리명 변환 (예: `app-ha-back` → `haback`, `cs-front` → `csfront`, `my-cool-app` → `mycoolapp`)
 
 ## Step 5. 최종 실행 계획 + 확인
 

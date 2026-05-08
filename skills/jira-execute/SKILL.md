@@ -134,9 +134,16 @@ FOR each Phase in 구현 계획:
   2. 수정 대상 파일 읽기 (반드시 Read 먼저)
   3. 변경 적용 (Edit/Write)
   4. Phase 검증 (MD에 명시된 검증 방법 실행)
-  5. 빌드 확인
 END FOR
+
+# 모든 Phase 완료 후 1회만 수행:
+- npm run lint (전체 lint)
+- npm run build (전체 빌드)
 ```
+
+> **빌드/린트 정책**: Phase 단위로 lint/build를 매번 돌리지 않는다. 매 변경마다 검증하면
+> 시간 낭비가 크고 컨텍스트가 무거워진다. 모든 Phase 구현이 끝난 후 단계 7에서 **1회만**
+> 전체 검증을 수행한다. Phase 검증은 MD가 명시한 정적 확인(파일 존재, 라우트 등록 등)으로 충분.
 
 **사이드 이펙트 방지 규칙:**
 
@@ -146,7 +153,7 @@ END FOR
 2. **MD에 명시된 변경만 적용** — 추가 리팩토링, 코드 정리, 주석 추가 금지
 3. **기존 코드 스타일 유지** — 수정 대상 파일의 기존 포맷팅/네이밍 따르기
 4. **import 정리 외 포맷팅 변경 금지** — 새 import 추가는 허용, 기존 코드 재정렬 금지
-5. **빌드 깨뜨리지 않기** — 각 Phase 완료 후 빌드 확인 필수
+5. **빌드 깨뜨리지 않기** — Phase 단위 빌드는 생략. 모든 Phase 완료 후 단계 7(전체 완료 검증)에서 1회만 수행. 단, 명백히 빌드를 깰 변경(존재하지 않는 import, 신택스 에러)은 즉시 발견·수정.
 
 **예외**: 빌드 에러나 컴파일 에러가 발생하면 해결에 필요한 최소 범위의 추가 수정은 허용. 이 경우 사용자에게 알림.
 
@@ -159,44 +166,60 @@ END FOR
   검증: <통과/실패>
 ```
 
-### 6. Codex 코드 리뷰 (선택)
+### 6. Codex 코드 리뷰 (필수 — Codex 설치 시)
 
-구현이 완료되면 Codex adversarial review로 git diff 기반 코드 리뷰를 수행합니다.
-이 단계는 빌드 검증 전에 실행하여, 리뷰 피드백 반영과 빌드 검증을 한 사이클로 끝내기 위함입니다.
+구현이 완료되면 Codex adversarial review 로 git diff 기반 코드 리뷰를 **반드시** 수행합니다.
+이 단계는 빌드 검증 전에 실행하여, 리뷰 피드백 반영과 빌드 검증을 한 사이클로 끝냅니다.
+
+**왜 필수인가**: Codex 는 다른 모델 시각으로 working-tree diff 를 검토합니다. 같은 모델이 자기 코드를 리뷰하면 동일한 사각지대를 공유하지만, 외부 리뷰어는 페르소나가 놓친 패턴 (race condition, 누락된 edge case, 잘못된 가정)을 잡아냅니다. "선택" 으로 두면 루프 모드/시간 압박 시 가장 먼저 스킵되는데, 그게 정확히 외부 시각이 가장 필요한 시점입니다. 그래서 **설치돼 있으면 무조건 실행**.
 
 #### 실행 방법
 
-`codex:adversarial-review`는 `disable-model-invocation: true`라서 Skill 도구로 호출할 수 없습니다.
-대신 Bash로 codex-companion 스크립트를 직접 실행합니다:
+`codex:adversarial-review` 는 `disable-model-invocation: true` 라서 Skill 도구로 호출 못 합니다.
+Bash 로 codex-companion 스크립트를 직접 실행합니다.
+
+**Step 6-1. 설치 감지** (먼저 실행):
 
 ```bash
-# 스크립트 존재 확인 후 실행
-CODEX_SCRIPT="$HOME/.claude/plugins/cache/openai-codex/codex/1.0.0/scripts/codex-companion.mjs"
-if [ -f "$CODEX_SCRIPT" ]; then
-  node "$CODEX_SCRIPT" adversarial-review --wait --scope working-tree
-fi
+CODEX_SCRIPT=$(printf '%s\n' "$HOME"/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)
 ```
 
-- `--wait`: 포그라운드 실행하여 결과를 즉시 받음
-- `--scope working-tree`: 현재 워킹 트리의 변경사항을 리뷰 대상으로 지정
+> `ls` 대신 `printf` 글로브를 쓰는 이유: 일부 환경의 `ls` 는 실행 파일에 `*` suffix 를 붙여 (`/path/codex-companion.mjs*`) 후속 `[ -f "$CODEX_SCRIPT" ]` 검증을 깨뜨립니다. `printf '%s\n' <glob>` 은 매치 결과를 그대로 출력하므로 안전합니다.
+
+- glob 으로 버전 디렉토리를 탐색 → 최신 버전 자동 선택 (plugin 자동 업데이트 대응. `1.0.0` hardcoding 금지)
+- `$CODEX_SCRIPT` 가 비어있으면 미설치 → Step 6-3 으로 분기
+- 비어있지 않으면 Step 6-2 진행
+
+**Step 6-2. 실행** (설치된 경우 — 스킵 금지):
+
+```bash
+node "$CODEX_SCRIPT" adversarial-review --wait --scope working-tree
+```
+
+- `--wait`: 포그라운드 실행 (결과 즉시 수신)
+- `--scope working-tree`: 워킹 트리 변경사항 리뷰
+
+이 호출은 **건너뛰지 않습니다**. 루프 모드, `--subtasks` 모드, 단일 이슈 — 어떤 컨텍스트에서도. 시간이 부족하다고 판단되더라도 실행합니다 (사용자의 명시적 정책).
+
+**Step 6-3. 미설치 시 (스킵 허용 — 단, 명시 출력)**:
+
+`$CODEX_SCRIPT` 가 비어있을 때만 다음 출력 후 진행:
+```
+⚠️ Codex 미설치 — adversarial review 스킵 (skill 정책상 설치돼 있으면 필수)
+```
+
+설치돼 있는데 실행 자체가 실패한 경우 (네트워크/권한/타임아웃) → 사용자에게 알리고 **재시도 또는 수동 검토 후 진행 여부 확인**. 자동 스킵 금지.
 
 #### 리뷰 결과 처리
 
-Codex가 반환한 리뷰 출력을 읽고 다음을 수행합니다:
+Codex 가 반환한 리뷰 출력을 읽고:
 
-1. 피드백 중 **타당한 지적만 선별**하여 반영 (페르소나의 전문적 판단으로 필터링)
-2. 수정 발생 시 해당 파일만 재수정 후 다음 단계(빌드 검증)에서 함께 확인
-3. 리뷰 결과를 터미널에 요약 출력:
+1. 피드백 중 **타당한 지적만 선별** 반영 (페르소나의 전문적 판단으로 필터링 — 모든 피드백을 무비판 수용하지 않음)
+2. 수정 발생 시 해당 파일만 재수정 후 Step 7(빌드 검증)에서 함께 확인
+3. 터미널에 요약 출력:
    ```
    🔍 Codex 코드 리뷰 완료 — 피드백 <N>건 중 <M>건 반영
    ```
-
-#### 실행 실패 시
-
-스크립트 미존재, Codex CLI 미설치, 또는 실행 에러 시 경고만 출력하고 다음 단계로 진행합니다:
-```
-⚠️ Codex 코드 리뷰 스킵 — plugin 미설치 또는 실행 실패
-```
 
 ### 7. 전체 완료 검증
 
@@ -283,3 +306,19 @@ git diff --stat
 - Agent Teams 모드에서 각 teammate는 CLAUDE.md를 자동으로 로드함
 - 사이드 이펙트 방지가 핵심 원칙 — 가이드에 없는 변경은 하지 않음
 - CLAUDE.md에 프로젝트별 빌드/린트 명령이 있으면 우선 사용
+- **Codex adversarial review (Step 6)는 Codex 설치 시 필수** — 루프/병렬/단일 모드 무관, 시간 압박 시에도 스킵 금지. 미설치 시에만 명시 출력 후 진행
+
+## --subtasks Mode
+
+사용자가 `/jira-execute <KEY> --subtasks` 로 호출 시:
+
+1. 부모 dev-guide 의 Phase 0 (scaffold) → Phase 1 (slice fan-out) → Phase 2 (통합) 순서로 진행
+2. **slice 별 구현 완료 시점**에 해당 하위 이슈에 1~3 줄 댓글 추가:
+   ```
+   🔨 구현 완료. 단위 테스트 N PASS.
+   통합 검증 + harness verdict 은 부모 `<KEY>` 댓글 참조.
+   ```
+3. Phase 1 fan-out 은 worktree 4개 (slice 마다) 또는 sequential — touched-files disjoint 검증 후 결정
+4. 통합 빌드 (Phase 2) 는 부모에서 1회만 수행 — 하위 댓글에 다시 인용 X
+
+자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3, § 5

@@ -108,3 +108,18 @@ MCP Atlassian 도구로 코멘트를 추가합니다:
 
 - 작은 단위로 자주 커밋하는 것을 권장
 - CLAUDE.md에 프로젝트별 커밋 규칙이 있으면 해당 규칙 우선 적용
+
+## --subtasks Mode
+
+사용자가 `/jira-commit <KEY> --subtasks` 로 호출 시:
+
+1. 부모 commit + 댓글 (기존 절차) — 1개 commit 에 N slice 변경 모두 포함
+2. **모든 하위 이슈에 짧은 댓글** 추가 (commit SHA 인용):
+   ```
+   ✅ commit `<SHA>` 에 통합 (부모 `<KEY>` 와 동일 commit, N slice 묶음).
+   변경 파일 + 검증 결과 + harness verdict 은 부모 댓글 참조.
+   ```
+3. 하위 이슈는 별도 transition 안 함 (commit 단계는 status 변경 없음 — 부모와 동일)
+4. 출력에 부모 + 하위별 댓글 추가 결과 표 포함
+
+자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3, § 5

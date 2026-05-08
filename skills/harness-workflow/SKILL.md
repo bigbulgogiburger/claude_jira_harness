@@ -14,6 +14,19 @@ triggers:
 > **핵심 가치**: 사용자는 이슈 키 하나만 입력. 나머지는 자동 시퀀싱.
 > **참조**: ~/.claude/docs/HARNESS-JIRA-ORTHOGONAL-ARCHITECTURE.md
 
+## Usage
+
+```
+/harness-workflow <ISSUE-KEY>              # 일반 모드 (부모 이슈만)
+/harness-workflow <ISSUE-KEY> --subtasks   # 부모 + 하위 작업 fan-out 모드 (ADR-070)
+```
+
+`--subtasks` 모드 진입 조건:
+- 사용자가 명시 플래그 전달
+- 부모 이슈의 `subtasks` 필드에 1개 이상 하위 키 존재 (자동 검증)
+
+조건 미충족 시 일반 모드로 폴백 + 안내.
+
 ## ⛔ Guard — HARNESS_MODE 확인 (최우선)
 
 이 스킬의 모든 단계보다 **먼저** 실행한다. `HARNESS_MODE` 환경변수를 확인:
@@ -41,17 +54,38 @@ triggers:
   "aggregate_verdict": null,
   "changed_files": [],
   "agent_outputs": {},
-  "history": []
+  "history": [],
+  "subtasks_mode": false,
+  "subtasks": [],
+  "slice_status": {}
 }
 ```
 
+`--subtasks` 모드 시:
+- `subtasks_mode: true`
+- `subtasks: [<sub-key>, ...]` (부모 이슈 조회 결과)
+- `slice_status: {<sub-key>: "pending"}` (구현/리뷰/완료 단계마다 갱신)
+
 ## 시퀀스
+
+> **`--subtasks` flag 자동 전파 규칙** — 사용자가 `/harness-workflow <KEY> --subtasks` 로 호출했으면, 아래 모든 자식 Skill 호출 인자에 `--subtasks` 자동 부착. 단 통합 검증 단계 (jira-test, harness-gate) 는 flag 불필요. 자세히는 `~/.claude/skills/_subtasks-convention.md` § 7.
+
+### Phase 0: 모드 확인 (`--subtasks` 시)
+
+```
+0. 사용자 입력에 --subtasks 가 있으면:
+   - mcp__atlassian__getJiraIssue 로 부모 이슈 조회
+   - subtasks 필드에 1개 이상 있으면 subtasks_mode 진입
+   - 비어있으면 일반 모드 폴백 + 사용자에게 안내
+   - state.subtasks_mode = true, state.subtasks = [...]
+```
 
 ### Phase 1: 착수
 
 ```
-1. Skill tool로 /jira-start <ISSUE-KEY> 호출
-   → 브랜치 생성, In Progress 전환
+1. Skill tool로 /jira-start <ISSUE-KEY> [--subtasks] 호출
+   → 부모 In Progress 전환 + 브랜치
+   → (--subtasks) 모든 하위 In Progress 전환 + 짧은 댓글
    → state.stage = "start"
 ```
 
@@ -59,20 +93,21 @@ triggers:
 
 ```
 2. 사용자에게 확인: "요구사항이 명확합니까? /jira-clarify가 필요합니까?"
-   → 필요하면: Skill tool로 /jira-clarify 호출
+   → 필요하면: Skill tool로 /jira-clarify <ISSUE-KEY> [--subtasks] 호출
    → 불필요하면: 스킵
 ```
 
 ### Phase 3: 계획
 
 ```
-3. Skill tool로 /jira-plan <ISSUE-KEY> 호출
-   → dev-guide.md 생성
+3. Skill tool로 /jira-plan <ISSUE-KEY> [--subtasks] 호출
+   → 부모 dev-guide.md 생성
+   → (--subtasks) slice dev-guide N장 추가 + 각 하위에 댓글
    → state.dev_guide_path = <생성된 경로>
    → state.stage = "planning"
 
-4. Skill tool로 /harness-plan <ISSUE-KEY> 호출
-   → Sprint Contract 생성
+4. Skill tool로 /harness-plan <ISSUE-KEY> [--subtasks] 호출
+   → Sprint Contract 생성 (slice 별 DoD 인라인)
    → state.sprint_contract_path = <생성된 경로>
    → state.stage = "plan-supplement"
    → state.total_phases = <Sprint Contract의 Phase 수>
@@ -95,15 +130,17 @@ triggers:
 OUTER LOOP (Phase 단위):
   while current_phase <= total_phases:
   
-    6. Skill tool로 /jira-execute <ISSUE-KEY> 호출
+    6. Skill tool로 /jira-execute <ISSUE-KEY> [--subtasks] 호출
        → Phase N 구현
+       → (--subtasks) slice 별 구현 완료 시 해당 하위에 짧은 댓글
        → state.stage = "implementing-phase-N"
     
     INNER LOOP (리뷰-수정 반복):
       state.iteration = 0
       
-      7. Skill tool로 /harness-review 호출
+      7. Skill tool로 /harness-review [--subtasks] 호출
          → Fan-out 리뷰 + Aggregate verdict
+         → (--subtasks) slice 별 verdict 가 있으면 부모 verdict 에 롤업
          → state.stage = "reviewing-phase-N"
          → state.iteration += 1
       
@@ -120,22 +157,24 @@ OUTER LOOP (Phase 단위):
 ### Phase 6: 최종 검증 + 커밋
 
 ```
-9. Skill tool로 /jira-test 호출
+9. Skill tool로 /jira-test 호출        # flag 불필요 (통합 검증)
    → 프로젝트별 테스트 실행
 
-10. Skill tool로 /harness-gate 호출
+10. Skill tool로 /harness-gate 호출    # flag 불필요 (통합 게이트)
     → 최종 품질 게이트
     → GATE PASS 필수
 
-11. Skill tool로 /jira-commit <ISSUE-KEY> 호출
-    → 커밋 + Jira 상태 업데이트
+11. Skill tool로 /jira-commit <ISSUE-KEY> [--subtasks] 호출
+    → 부모 commit + 댓글
+    → (--subtasks) 모든 하위에 commit SHA 인용 댓글
 ```
 
 ### Phase 7: 완료
 
 ```
-12. Skill tool로 /jira-complete <ISSUE-KEY> 호출
-    → 최종 검증 + 푸시
+12. Skill tool로 /jira-complete <ISSUE-KEY> [--subtasks] 호출
+    → 부모 QA 전이 + 푸시 + archive
+    → (--subtasks) 모든 하위 QA 전이 + 짧은 댓글
     → state cleanup (workflow-state.json 삭제 또는 아카이브)
 ```
 

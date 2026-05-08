@@ -19,7 +19,7 @@ description: "jira-clarify — 대충 쓴 Jira 이슈를 구체화하고, 멀티
 
 ## 왜 이 단계가 필요한가
 
-Jira 이슈는 현실적으로 "정산 분리 해주세요", "배송예정일 추가" 같은 한두 줄로 작성되는 경우가 많습니다. 이 상태에서 바로 plan을 세우면 잘못된 방향으로 개발하게 됩니다. 개발 전에 5분간 대화하는 것이 개발 후 2시간 삽질하는 것보다 훨씬 효율적입니다.
+Jira 이슈는 현실적으로 "정산 이원화 해주세요", "방문예정일 추가" 같은 한두 줄로 작성되는 경우가 많습니다. 이 상태에서 바로 plan을 세우면 잘못된 방향으로 개발하게 됩니다. 개발 전에 5분간 대화하는 것이 개발 후 2시간 삽질하는 것보다 훨씬 효율적입니다.
 
 ## Procedure
 
@@ -93,8 +93,8 @@ mcp__atlassian__searchJiraIssuesUsingJql
 
 예시 (실제 사례):
 ```
-vendorCommissionTotal 계산 위치:
-  1. OrderReport.updateFee()
+staffTeamTotalPrice 계산 위치:
+  1. RepairReport.updateFee()
   2. SettlementSnapshotService.createSettlementDetails()
   3. Settlement.recalculateFrom()
   4. SettlementQueryRepositoryImpl (list 집계)
@@ -104,16 +104,37 @@ vendorCommissionTotal 계산 위치:
 
 이 분석 결과를 Q&A에서 공유하여 사용자가 영향 범위를 정확히 파악할 수 있게 합니다.
 
-#### 2-3. Feign/API 경계 자동 감지
+#### 2-3. Cross-project API 경계 자동 감지 (스택 분기)
 
-코드에서 Feign Client 호출을 스캔하여, 이슈 작업이 외부 시스템에 걸치는지 자동으로 탐지합니다.
+이슈 작업이 외부 시스템(다른 프로젝트/마이크로서비스)에 걸치는지 자동으로 탐지합니다. 백엔드는 Feign 같은 RPC 클라이언트, 프론트엔드는 HTTP 클라이언트(axios/fetch/dio)로 외부와 대화하므로, 스택에 따라 스캔 패턴이 다릅니다.
 
+**Spring Boot (Java/Kotlin)**
 ```bash
-# Feign Client 인터페이스에서 관련 메서드 검색
-Grep: "@FeignClient" → 클라이언트 목록
-Grep: 이슈 키워드와 관련된 Feign 메서드
-→ 해당 메서드를 호출하는 Service 추적
+Grep: "@FeignClient" → Feign Client 인터페이스 목록
+Grep: "RestTemplate|WebClient" → 다른 RPC 호출
+Grep: 이슈 키워드와 관련된 클라이언트 메서드 → 호출 Service 추적
 ```
+
+**Vue / React / Angular (JS/TS)**
+```bash
+Grep: "axios\.(get|post|put|delete|patch)" 또는 "axios\(" → axios 호출 위치
+Grep: "fetch\(" → 네이티브 fetch 호출
+Grep: "/api/[^\"']+" → 백엔드 엔드포인트 경로 (어떤 API에 의존하는지)
+Grep: VITE_API_BASE_URL / NEXT_PUBLIC_API_BASE 등 환경변수 → 베이스 URL 추적
+```
+
+**Flutter (Dart)**
+```bash
+Grep: "Dio\(\)" 또는 "dio\." → Dio 클라이언트 호출
+Grep: "http\.(get|post|put|delete)" → http 패키지 호출
+Grep: "/api/[^\"']+" → API 엔드포인트
+```
+
+**스택 미감지 / 기타**
+- `/api/`, `http://`, `https://` 등 일반 URL 패턴 grep으로 외부 호출 후보 수집
+- 환경변수 베이스 URL(예: `_BASE_URL`, `_API_HOST`) grep
+
+각 스택의 결과를 통합하여 "이 프로젝트에서 다른 시스템 호출"이라는 cross-project 영향도를 산출합니다.
 
 감지 결과 예시:
 ```
@@ -121,15 +142,19 @@ Grep: 이슈 키워드와 관련된 Feign 메서드
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 이 기능은 다음 외부 호출을 포함합니다:
 
-1. InternalCatalogClient.orderRegisterPost()
-   order-service → catalog-service (POST /order-management/register/post)
-   → 주문 완료등록 시 외부 판매자 요금 전달
+1. InternalAppApplianceClient.repairRequestRegisterPost()
+   cs-back → app-ha-back (POST /repair-management/register/post)
+   → 완료등록 시 수리파트너 요금 전달
 
-2. InternalCatalogClient.getDeliveryPropose()
-   order-service ← catalog-service (GET /internal/order-management/delivery-propose)
-   → 배송예정 조회 시 응답 필드 추가 필요
+2. axios.get('/api/repair-management/visit-propose')
+   cs-front → cs-back (GET)
+   → 응답 스키마 변경 시 cs-front 수정 필요
 
-→ catalog-service 수정이 필요합니다.
+3. dio.post('/api/v1/repair-status', ...)
+   app_v2 → cs-back (POST)
+   → Flutter 앱 측 모델 클래스 갱신 필요할 수 있음
+
+→ 영향받는 프로젝트: app-ha-back, cs-front, app_v2
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -153,7 +178,7 @@ mcp__atlassian__searchJiraIssuesUsingJql
 ```
 📚 참고: 비슷한 작업 이력
 - <DONE-KEY-1>: <제목> — 하위 이슈 3개로 분할, 2주 소요
-- <DONE-KEY-2>: <제목> — order-service만 수정, 1주 소요
+- <DONE-KEY-2>: <제목> — cs-back만 수정, 1주 소요
 ```
 
 ### 3. 스마트 Q&A 세션
@@ -172,9 +197,9 @@ mcp__atlassian__searchJiraIssuesUsingJql
 - "프론트엔드 작업도 있나요?"
 
 **좋은 질문:**
-- "코드를 보니 `OrderReport`에 `vendorCommissionTotal` 필드가 있는데, 이번에 이 계산식이 `baseFee + handlingFee + commissionFee`로 바뀌어야 하는 게 맞나요?"
-- "`InternalCatalogClient.getDeliveryPropose()`가 catalog-service을 호출하고 있어서, catalog-service에서도 `details`, `checks` 필드를 추가해야 합니다. 이것도 이 이슈 범위인가요, 아니면 별도 이슈로 따야 하나요?"
-- "PROJ-157 댓글에 '수수료가 vendorCommissionTotal에 안 들어간다'는 버그가 있던데, 이번에 같이 수정하는 건가요?"
+- "코드를 보니 `RepairReport`에 `staffTeamTotalPrice` 필드가 있는데, 이번에 이 계산식이 `perDiem + tech + costOfParts`로 바뀌어야 하는 게 맞나요?"
+- "`InternalAppApplianceClient.getVisitPropose()`가 app-ha-back을 호출하고 있어서, app-ha-back에서도 `details`, `checks` 필드를 추가해야 합니다. 이것도 이 이슈 범위인가요, 아니면 별도 이슈로 따야 하나요?"
+- "PROJ-157 댓글에 '부품비가 staffTeamTotalPrice에 안 들어간다'는 버그가 있던데, 이번에 같이 수정하는 건가요?"
 
 #### 질문 생성 프로세스
 
@@ -198,8 +223,8 @@ mcp__atlassian__searchJiraIssuesUsingJql
 - "이 필드를 바꾸면 5곳에서 계산이 바뀌는데, 전부 수정 범위인가요?"
 
 **C. 크로스 프로젝트 확인** — Feign 감지 결과 기반
-- "이 API가 Feign으로 catalog-service을 호출하는데, 양쪽 다 수정이 필요합니다"
-- "catalog-service 작업은 누가 하나요? 하위 이슈로 나눌까요?"
+- "이 API가 Feign으로 app-ha-back을 호출하는데, 양쪽 다 수정이 필요합니다"
+- "app-ha-back 작업은 누가 하나요? 하위 이슈로 나눌까요?"
 
 **D. 관련 이슈 통합** — 수집된 관련 이슈/버그 기반
 - "PROJ-157에 관련 버그가 있는데, 이번에 같이 잡을까요?"
@@ -259,7 +284,7 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 #### 생성 기준
 
 다음 중 하나라도 해당하면 하위 이슈를 생성합니다:
-- 2개 이상의 프로젝트 수정 필요 (order-service + catalog-service, order-service + order-admin 등)
+- 2개 이상의 프로젝트 수정 필요 (cs-back + app-ha-back, cs-back + cs-front 등)
 - Feign 경계 감지에서 양쪽 수정 필요로 확인
 - 백엔드/프론트엔드 동시 작업 필요
 - 다른 담당자에게 별도 작업 요청 필요
@@ -279,9 +304,9 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 ```
 
 **하위 이슈 제목 패턴:**
-- `[order-service] 정산 분리 — 외부 판매자 요금 필드 추가`
-- `[catalog-service] 정산 분리 — 주문 완료등록 API 외부 판매자 요금 수신`
-- `[order-admin] 정산 분리 — 외부 판매자 요금 컬럼 표시`
+- `[cs-back] 정산 이원화 — 수리파트너 요금 필드 추가`
+- `[app-ha-back] 정산 이원화 — 완료등록 API 수리파트너 요금 수신`
+- `[cs-front] 정산 이원화 — 수리파트너 요금 컬럼 표시`
 
 **하위 이슈 설명에 포함할 내용:**
 - 해당 프로젝트에서의 구체적 작업 내용
@@ -293,8 +318,8 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 #### 이슈 링크 설정
 
 하위 이슈 간 의존성이 있으면 `mcp__atlassian__createIssueLink`로 연결:
-- order-service이 먼저 완료되어야 order-admin에서 API 호출 가능 → "blocks" 링크
-- catalog-service이 Feign 수신 처리 완료해야 order-service에서 정상 동작 → "blocks" 링크
+- cs-back이 먼저 완료되어야 cs-front에서 API 호출 가능 → "blocks" 링크
+- app-ha-back이 Feign 수신 처리 완료해야 cs-back에서 정상 동작 → "blocks" 링크
 
 ### 6. 결과 출력
 
@@ -318,9 +343,9 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
   영향 범위: <프로젝트 목록>
 
 📂 하위 이슈: (해당 시)
-  <SUB-KEY-1>: [order-service] <작업 내용>
-  <SUB-KEY-2>: [catalog-service] <작업 내용>
-  <SUB-KEY-3>: [order-admin] <작업 내용>
+  <SUB-KEY-1>: [cs-back] <작업 내용>
+  <SUB-KEY-2>: [app-ha-back] <작업 내용>
+  <SUB-KEY-3>: [cs-front] <작업 내용>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 다음 단계: /jira-plan <ISSUE-KEY>
@@ -341,3 +366,13 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 - 기존 이슈 설명은 버리고, Q&A로 확정된 내용으로 새로 구성한 텍스트로 description을 완전히 교체함 (append 금지, 코멘트 금지)
 - `/jira-start`에서 이미 조회한 이슈 정보가 대화에 있으면 재조회하지 않고 활용
 - 과거 유사 이슈 조회 시 해당 프로젝트의 JQL만 사용 (다른 프로젝트 혼입 방지)
+
+## --subtasks Mode
+
+사용자가 `/jira-clarify <KEY> --subtasks` 로 호출 시:
+
+1. 부모 이슈 처리 (description 갱신, Q&A) 그대로 수행
+2. 부모 이슈의 `subtasks` 가 있고, Q&A 결과가 slice 별로 명확히 갈리면 **각 하위 description 도 그 slice 컨텍스트로 보강** (1~2 문단). slice 별 갈림이 없으면 하위 description 갱신 생략.
+3. 출력에 부모 + 하위별 갱신 여부 표 포함
+
+자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3

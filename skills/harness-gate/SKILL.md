@@ -37,13 +37,32 @@ triggers:
 | verdict = ITERATE | "🔴 Blocker 미해결. 커밋 불가." 차단 |
 | verdict = ESCALATE | "🔴 재계획 필요. /harness-plan 재실행." 차단 |
 
-### Step 2. 프로젝트별 빌드 검증
+### Step 2. 빌드 검증 (cwd 우선 + 스택 fallback)
+
+cwd가 알려진 프로젝트와 매칭되면 그 명령을 우선 사용하고, 매칭되지 않으면 스택을 감지하여 기본 명령을 실행한다. 이 분기는 새 프로젝트(Flutter, 다른 백엔드 등)에서도 게이트가 의미 있게 동작하도록 만들기 위함이다.
+
+**알려진 프로젝트 (우선)**
 
 | 프로젝트 | 명령어 |
 |---------|--------|
-| **catalog-service** | `./gradlew compileJava -q` |
-| **order-service** | `./gradlew.bat compileJava -q` |
-| **order-admin** | `npx vue-tsc --noEmit` (타입 체크만, 빌드 아님) |
+| **app-ha-back** | `./gradlew compileJava -q` |
+| **cs-back** | `./gradlew.bat compileJava -q` |
+| **cs-front** | `npx vue-tsc --noEmit` (타입 체크만, 빌드 아님) |
+
+**Stack-based Fallback (cwd가 위에 매칭 안 되거나 알 수 없을 때)**
+
+CLAUDE.md에 빌드/타입체크 명령이 명시되어 있으면 그것을 우선 사용한다. 없으면 다음 기본:
+
+| 스택 | 기본 명령 | 비고 |
+|------|----------|------|
+| Spring Boot (Gradle) | `./gradlew.bat compileJava -q` (Windows) 또는 `./gradlew compileJava -q` | gradlew 존재 우선 |
+| Spring Boot (Maven) | `mvn -q compile` | |
+| Vue/React/Angular | `npx tsc --noEmit` 또는 `npm run typecheck` | package.json scripts 우선 |
+| Flutter | `flutter analyze --no-pub` | |
+| Go | `go build ./...` | |
+| Rust | `cargo check` | |
+| Python | `mypy .` 또는 `python -m py_compile **/*.py` | mypy 설정 있을 때 우선 |
+| unknown | (스킵 + 경고) | "스택 감지 실패 — 빌드 검증 생략" 표시 |
 
 빌드 실패 시 차단 + 에러 메시지 출력.
 
@@ -98,7 +117,7 @@ Sprint Contract (`.claude/runtime/sprint-contract/PROJ-XXX.md`)가 있으면:
 
 - /jira-commit의 기존 DoD 검증과 **독립** — 이중 체크가 되어도 충돌 없음
 - 빌드 실패 시 프로젝트 에이전트 제안 (있는 경우):
-  - catalog-service: `catalog-build-resolver`
-  - order-service: (build-resolver 에이전트 없음 — 수동 해결)
-  - order-admin: (build-resolver 에이전트 없음 — 수동 해결)
+  - app-ha-back: `haback-build-resolver`
+  - cs-back: (build-resolver 에이전트 없음 — 수동 해결)
+  - cs-front: (build-resolver 에이전트 없음 — 수동 해결)
 - `HARNESS_MODE=off`일 때는 이 스킬을 제안하지 않음

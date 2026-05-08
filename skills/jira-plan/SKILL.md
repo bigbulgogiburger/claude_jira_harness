@@ -236,3 +236,18 @@ Phase 1 (독립)  →  Phase 2 (Phase 1 완료 후)
 - CLAUDE.md에 프로젝트별 규칙이 있으면 가이드에 반영
 - 페르소나는 "조언자"가 아닌 "실무자" — 추상적 조언이 아닌 **구체적인 파일 경로와 코드 변경** 제시
 - 이미 `docs/<ISSUE-KEY>-dev-guide.md`가 존재하면 덮어쓸지 사용자에게 확인
+
+## --subtasks Mode
+
+사용자가 `/jira-plan <KEY> --subtasks` 로 호출하고 부모 이슈에 하위 작업이 있으면, 부모 dev-guide 처리 후 **추가로**:
+
+1. 부모 dev-guide (`docs/<KEY>-dev-guide.md`) 에 § DAG / § Cross-cutting 결정 / § slice 진입점 표 포함
+2. 각 하위 키마다 slice dev-guide 작성: `docs/<KEY>-<SUB-KEY>-dev-guide.md` (ADR-070 형식 — `### 0. Touched Files` 섹션 의무)
+3. **각 하위 이슈에 짧은 댓글** 추가:
+   ```
+   📝 dev-guide 작성 완료: `docs/<KEY>-<SUB-KEY>-dev-guide.md`
+   부모 통합 가이드: `docs/<KEY>-dev-guide.md`
+   ```
+4. 출력에 부모 + 하위별 dev-guide 경로 표 포함
+
+자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3, § 5

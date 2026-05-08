@@ -1,0 +1,31 @@
+{
+  "skill_name": "jira-create",
+  "evals": [
+    {
+      "id": 1,
+      "name": "single-issue-from-prompt-with-explicit-prefix",
+      "prompt": "/jira-create [STD] 대시보드에 KPI 위젯(매출/활성사용자/전환율)을 추가하는 이슈 만들어줘. Vue 프로젝트야.",
+      "expected_output": "STD 프로젝트에 Story 또는 Task 타입으로 단일 이슈를 등록한다. 제목은 '[Dashboard] KPI 위젯 추가' 형태. 라벨은 vue/frontend/feature 정도. 설명은 배경/작업범위/인수조건 섹션 포함, 라이트하게. 등록 전 사용자 확인 필수.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "single-issue-no-prefix-needs-detection",
+      "prompt": "/jira-create 정산 화면에서 엑셀 다운로드 시 한글 파일명이 깨지는 버그 등록해줘 (Safari에서만 발생)",
+      "expected_output": "prefix 미지정이므로 자동 감지 절차(브랜치명/git log/MCP getVisibleJiraProjects/AskUserQuestion) 수행. issueType은 Bug. 제목에 [정산] 또는 [Settlement] prefix. 설명에 환경/재현/기대/실제/영향 섹션. 등록 전 확인.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "bulk-from-document-epic-story-subtask",
+      "prompt": "/jira-create docs/w1-w4.md 읽고 STD 프로젝트에 에픽→이슈→하위이슈 순으로 등록해줘",
+      "expected_output": "벌크 모드 진입. 문서를 끝까지 읽고 헤딩/주차 구조에서 계층 추출. 기존 에픽 검색 후 트리 미리보기 → 사용자 일괄 승인 → Epic → Story/Task → Sub-task 순으로 등록. 모든 이슈에 from-doc-w1-w4 라벨 (콜론 금지, 하이픈만). parent 는 top-level 필드. 진행 상황 + 최종 트리 출력. 설명은 라이트.",
+      "files": [
+        {
+          "path": "docs/w1-w4.md",
+          "content": "# 대시보드 KPI 개편 — 4주 계획\n\n## 주차 1: KPI 위젯 컴포넌트\n- 위젯 골격 + 스타일 작성\n- props (title, value, delta) 정의\n- 스토리북 추가\n\n## 주차 2: 데이터 연동\n- /api/dashboard/kpi 엔드포인트 추가\n- 일별 집계 쿼리\n- 캐시 정책 결정\n\n## 주차 3: 대시보드 통합\n- 라우트에 위젯 배치\n- 시간 범위 필터\n- 모바일 반응형\n\n## 주차 4: 알림/이상 탐지\n- 임계치 설정 UI\n- 알림 패널 컴포넌트\n- 슬랙 연동 (선택)\n"
+        }
+      ]
+    }
+  ]
+}

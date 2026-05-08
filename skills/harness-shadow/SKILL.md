@@ -180,7 +180,7 @@ ls .claude/runtime/aggregate-verdict.md 2>/dev/null
 
 - 같은 세션에서 baseline + Harness 연달아 실행 (contamination)
 - Harness가 이미 완료된 이슈에 대해 "retroactive baseline" 만들기 (자기기만)
-- Baseline 리뷰에 project agent (catalog-*, cs-*, orderadmin-*) 호출 금지
+- Baseline 리뷰에 프로젝트 도메인 에이전트 호출 금지. 구체적으로는 `.claude/agents/` 안에 등록된 모든 프로젝트 에이전트(예: `haback-*`, `cs-*`, `csfront-*`, `app-*`, 또는 임의의 `{prefix}-*` 접두사) 및 글로벌 reviewer/auditor/sentinel 계열 에이전트 호출이 금지된다. baseline은 **메인 세션의 추론 + git diff + dev-guide + CLAUDE.md만**으로 작성해야 lift 측정의 의미가 살아난다. 새 프로젝트에서 어떤 prefix를 쓰든 이 룰은 동일하게 적용된다.
 
 ## 출력 상한
 
