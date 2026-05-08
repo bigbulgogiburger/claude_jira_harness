@@ -32,6 +32,16 @@ Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → �
 | `/harness-score <KEY>` | post-merge VALID/INVALID 채점 (catch rate / FP rate 측정) |
 | `/harness-resume` | 체크포인트 복원으로 중단된 단계부터 재개 |
 
+### `--subtasks` 모드 (공통 컨벤션)
+
+부모 Jira 이슈 1개 + 하위 작업 N개를 한 묶음의 fan-out 단위로 처리하는 모드. 모든 `jira-*` / `harness-workflow` 스킬이 공유하는 단일 컨벤션 문서로 동작 — [`skills/_subtasks-convention.md`](skills/_subtasks-convention.md) 가 single source of truth.
+
+- 진입: `/jira-start PROJ-7 --subtasks` 또는 `/harness-workflow PROJ-7 --subtasks`
+- 원칙: 산출물(dev-guide, sprint-contract, verdict, commit) 은 **부모에 귀속**, 하위는 **트래킹 미러** (PM/QA 가시성 위한 상태 동기화 + 1~3줄 댓글)
+- `harness-workflow --subtasks` 가 자식 스킬 전부에 flag 자동 전파
+- 부모 이슈에 `subtasks` 가 없으면 일반 모드로 자동 폴백
+- 사후 보정 절차도 문서 §8 에 포함 (구버전으로 작업해서 하위가 To Do 로 남은 케이스)
+
 ### 부가 스킬·명령어
 
 | 항목 | 종류 | 역할 |
@@ -91,6 +101,12 @@ done
 
 ```
 /harness-workflow PROJ-123
+```
+
+부모 + 하위 이슈를 한 번에 가려면:
+
+```
+/harness-workflow PROJ-7 --subtasks
 ```
 
 ## 라이선스
