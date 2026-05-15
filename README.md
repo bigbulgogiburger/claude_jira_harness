@@ -1,8 +1,8 @@
 # claude_jira_harness
 
-Jira 워크플로우 + Harness Engineering Claude Code 스킬 셋.
+Jira 워크플로우 + Harness Engineering + LLM Wiki Claude Code 스킬 셋.
 
-Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료까지의 전 사이클을 슬래시 명령으로 묶고, 그 위에 다중 에이전트 리뷰(Harness)와 사후 채점/Shadow 비교까지 얹은 사용자 스코프 스킬 모음. 부가적으로 raster 이미지 생성(`imagegen`) 과 CLAUDE.md 자동 정리(`/organize-claude-md`) 도 포함.
+Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료까지의 전 사이클을 슬래시 명령으로 묶고, 그 위에 다중 에이전트 리뷰(Harness)와 사후 채점/Shadow 비교, 그리고 산출물을 **영구 지식 자산(LLM Wiki)** 으로 누적하는 사용자 스코프 스킬 모음. 부가적으로 코드베이스 AI 준비도 감사, knowledge graph 추출, Spring Boot 리팩토링, raster 이미지 생성, CLAUDE.md 자동 정리까지 포함.
 
 ## 구성
 
@@ -32,6 +32,25 @@ Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → �
 | `/harness-score <KEY>` | post-merge VALID/INVALID 채점 (catch rate / FP rate 측정) |
 | `/harness-resume` | 체크포인트 복원으로 중단된 단계부터 재개 |
 
+### LLM Wiki — 영구 지식 자산화 (3개 + 1 SSoT)
+
+Karpathy LLM Wiki 패턴 기반. dev-guide, ADR, 외부 문서 등 모든 산출물을 build-time 합성해 **한 번 흡수하면 영구 자산**이 되는 지식 베이스를 구축한다. `/jira-plan`·`/jira-complete` 가 자동으로 ingest/lint를 chain 호출하므로 별도 호출 없이도 wiki가 누적된다.
+
+| 스킬 | 역할 | 호출 시점 |
+| ---- | ---- | --------- |
+| `/jira-ingest` | dev-guide 생성/완료마다 `docs/INDEX.md` + `docs/LOG.md` + ADR/sprint cross-reference 증분 갱신 (Jira 도메인 전용) | `/jira-plan`·`/jira-complete` 자동 chain, 또는 명시 호출 |
+| `/llm-wiki` | 임의 raw input(웹 글, PDF, 팟캐스트, 책, 이미지/OCR, 음성, 영상, 코드 리포) → wiki 합성. Jira 외 모든 정보 소스 담당 | "이 글 정리해줘", "위키에 추가" 등 자연어 트리거 |
+| `/wiki-lint` | 14가지 정합성 체크 (orphan / stale / broken xref / parent-sibling 비대칭 / Jira 상태 불일치 / memory drift / INDEX integrity) → 자동수정 가능/수동 검토 분리 보고 | `/jira-complete` 자동 chain (high severity, non-blocking) 또는 명시 호출 |
+| [`_wiki-schema.md`](skills/_wiki-schema.md) | jira-ingest ↔ wiki-lint 가 공유하는 single source of truth | — |
+
+### 코드베이스 분석·리팩토링 (3개)
+
+| 스킬 | 역할 |
+| ---- | ---- |
+| `/codebase-ai-readiness` | 임의 git 레포를 7-카테고리 100점 루브릭으로 감사 → JSON 점수표 + 한국어 HTML 대시보드 + ROI 우선순위 액션 리스트 산출. Factory.ai Agent Readiness pillars + AGENTS.md 명세 + Anthropic best practice 종합 기반. 프레임워크 무관. |
+| `/graphify` | 임의 input(코드, docs, 논문, 이미지) → knowledge graph → community detection → HTML + JSON + audit report. god node / BFS·DFS 쿼리 도구 포함. post-commit hook 으로 graph 증분 갱신 가능. |
+| `/spring-boot-refactor` | Spring Boot 프로젝트의 DDD 패턴 강화, CQRS 적용, Service 계층 분리(Read/Write), 테스트 커버리지 개선, N+1 해결 자동 분석·제안. |
+
 ### `--subtasks` 모드 (공통 컨벤션)
 
 부모 Jira 이슈 1개 + 하위 작업 N개를 한 묶음의 fan-out 단위로 처리하는 모드. 모든 `jira-*` / `harness-workflow` 스킬이 공유하는 단일 컨벤션 문서로 동작 — [`skills/_subtasks-convention.md`](skills/_subtasks-convention.md) 가 single source of truth.
@@ -42,12 +61,12 @@ Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → �
 - 부모 이슈에 `subtasks` 가 없으면 일반 모드로 자동 폴백
 - 사후 보정 절차도 문서 §8 에 포함 (구버전으로 작업해서 하위가 To Do 로 남은 케이스)
 
-### 부가 스킬·명령어
+### 부가 스킬·명령어 (2개)
 
 | 항목 | 종류 | 역할 |
 | ---- | ---- | ---- |
 | `imagegen` | skill | OpenAI Codex CLI 의 built-in `image_gen` 을 메인 Claude 세션이 직접 오케스트레이션하는 thin orchestrator. 2~3개 질문으로 brief 합의 후 `codex exec` 백그라운드 호출 + Monitor 폴링. 결과는 호출 프로젝트의 `codex-image/` 폴더에 저장. **raster 전용** — SVG/벡터·코드 생성에는 사용 금지. |
-| `/organize-claude-md` | command | CLAUDE.md를 **Lazy Loading 참조 구조 + 프레임워크 특화 템플릿 + Mermaid 아키텍처**로 재구성. `(빈 값)` git diff 기반 증분 / `full` 전체 재구성 / `main` / `references` / `module:<name>` / `scan` / `diff` / `gap` / `<경로>` 인자 지원. |
+| `/organize-claude-md` | skill + command | CLAUDE.md를 **Lazy Loading 참조 구조 + 프레임워크 특화 템플릿 + Mermaid 아키텍처**로 재구성. Monorepo 분기 + CHANGELOG 분리 + ADR 자동 생성 안내. `(빈 값)` git diff 기반 증분 / `full` 전체 재구성 / `main` / `references` / `module:<name>` / `scan` / `diff` / `gap` / `<경로>` 인자 지원. Spring Boot / Vue / Nuxt / React / Next.js / Flutter / NestJS / FastAPI / Django / Go 특화 스캔. |
 
 ## 설치
 
@@ -66,7 +85,7 @@ mkdir -p ~/.claude/commands
 cp -R commands/* ~/.claude/commands/
 ```
 
-또는 심볼릭 링크로:
+또는 심볼릭 링크로 (이후 `git pull` 만으로 즉시 반영):
 
 ```bash
 for d in skills/*/; do
@@ -82,19 +101,27 @@ done
 - Claude Code (CLI 또는 데스크톱 앱)
 - Jira 사용 시: MCP Atlassian 서버가 활성화되어 있어야 함 (`mcp__atlassian__*` 도구 사용)
 - Harness 채점/리뷰는 프로젝트 루트에 `.claude/runtime/` 쓰기 권한 필요
+- LLM Wiki (`/jira-ingest`, `/llm-wiki`, `/wiki-lint`) 사용 시: 프로젝트 루트에 `docs/` 디렉토리 쓰기 권한
 - `imagegen` 사용 시: OpenAI Codex CLI 설치 + ChatGPT Plus 로그인 (built-in `image_gen` 무료 한도 사용). 유료 fallback 은 `OPENAI_API_KEY` 명시 요청 시에만.
+- `/codebase-ai-readiness` 사용 시: 감사 대상 레포 루트에 `.ai-readiness/` 쓰기 권한
+- `/graphify` 사용 시: Python 환경 (`graphify-out/` 산출물 생성)
 
 ## 권장 사용 흐름
+
+기본 Jira 사이클:
 
 ```
 /jira-create                       (요구사항/문서 → 이슈 등록)
   → /jira-start PROJ-123
     → /jira-clarify PROJ-123       (요구사항 흐릿하면)
-      → /jira-plan PROJ-123
+      → /jira-plan PROJ-123        ─┐  자동 chain
+                                    ├─ /jira-ingest (docs/INDEX.md 갱신)
         → /jira-execute PROJ-123
           → /jira-test PROJ-123
             → /jira-commit PROJ-123
-              → /jira-complete PROJ-123
+              → /jira-complete PROJ-123 ─┐  자동 chain
+                                         ├─ /jira-ingest (최종 상태 반영)
+                                         └─ /wiki-lint (high severity health check)
 ```
 
 전 과정을 한 번에 가고 싶으면:
@@ -107,6 +134,21 @@ done
 
 ```
 /harness-workflow PROJ-7 --subtasks
+```
+
+새 프로젝트 합류 시 진단부터:
+
+```
+/codebase-ai-readiness      → 100점 루브릭 감사 + ROI 액션 리스트
+/organize-claude-md         → CLAUDE.md 재구성 (또는 부재 시 신규 생성)
+/harness-setup              → 에이전트/훅/메트릭 인프라 프로비저닝
+```
+
+Jira 외부 정보 자산화:
+
+```
+/llm-wiki <URL 또는 파일 경로>   → docs/wiki/ 에 영구 노트 추가
+/wiki-lint                       → 정기 health check
 ```
 
 ## 라이선스
