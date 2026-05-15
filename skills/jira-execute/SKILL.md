@@ -63,64 +63,168 @@ MD 파일의 `## 5. 병렬 작업 가이드` 섹션 존재 여부로 실행 모�
 
 ```
 IF "## 5. 병렬 작업 가이드" 섹션 존재 AND "Agent Teams 구성" 테이블 존재:
-  → 병렬 실행 모드 (Step 4A)
+  → 병렬 실행 모드 (Step 4A) — Agent Teams 자동 진입
+ELSE IF "--subtasks" 플래그 AND 부모 이슈에 하위 작업 존재:
+  → 병렬 실행 모드 (Step 4A) — slice 마다 1 teammate 자동 spawn
 ELSE:
   → 순차 실행 모드 (Step 4B)
 ```
 
-### 4A. 병렬 실행 모드 (Agent Teams)
+> **자동 트리거**: dev-guide § 5 의 "Agent Teams 구성" 표가 있으면 사용자 추가 확인 없이 Step 4A 진입. 진입 시점에 두 줄 출력:
+> ```
+> 🧑‍🤝‍🧑 Agent Teams 모드 진입 — N teammate spawn 예정
+> ⚠️  Token cost ≈ 단일 세션 × 3-7 (공식 문서 기준). 중단하려면 Ctrl+C
+> ```
 
-MD의 병렬 작업 가이드에 정의된 구성으로 Agent Teams를 생성합니다.
+> **`/resume` 제약** (공식 limitation): in-process teammate 는 `/resume` 후 복원 안 됨. 도중 종료 시 lead 가 새 teammate 다시 spawn. `harness-resume` 도 동일.
 
-**4A-1. 팀 생성 프롬프트 구성**
+> **사전 조건 (필수)**: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 가 settings.json 또는 환경변수에 있어야 함. 없으면 § 4A 실행 자체가 실패하므로, Step 4A 진입 직전 1회 확인:
+> ```bash
+> grep -q "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" ~/.claude/settings.json "$CLAUDE_PROJECT_DIR/.claude/settings.local.json" 2>/dev/null \
+>   || echo "❌ Agent Teams 비활성 — settings.json 에 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 추가 필요"
+> ```
+> 미설정 시 § 4B 순차 모드로 폴백.
 
-MD에서 추출한 정보로 팀을 구성합니다:
+### 4A. 병렬 실행 모드 (Agent Teams) — **operational**
 
-```
-다음 작업을 병렬로 진행할 Agent Team을 만들어줘.
+> 이 절은 자연어 묘사가 아니라 **구체적 도구 호출 시퀀스**입니다. 모든 step 을 순서대로 그대로 실행하세요. "팀 생성 프롬프트를 구성한다" 같은 추상 표현으로 대체 금지.
 
-[MD의 "Agent Teams 구성" 테이블을 기반으로 각 teammate 역할 설명]
+**4A-0. Deferred tool 스키마 로드 (스킵 금지)**
 
-각 teammate에게 다음 컨텍스트를 전달:
-- 프로젝트 스택: <스택>
-- CLAUDE.md의 핵심 규칙
-- 담당 파일 목록과 구체적 변경 내용
-- 파일 충돌 방지 규칙: 자기 담당 파일만 수정
-
-모든 teammate는 plan approval을 받은 후 실행해줘.
-```
-
-**4A-2. teammate별 프롬프트**
-
-각 teammate에게 다음을 포함한 구체적 프롬프트를 전달:
+Agent Teams 도구들은 deferred — 기본 도구 목록에 스키마가 없습니다. 호출 전에 한 번만 ToolSearch 로 로드:
 
 ```
-당신은 <페르소나명>입니다.
-
-## 담당 작업
-<MD Phase에서 해당 teammate 작업 내용>
-
-## 수정 가능 파일 (이 파일들만 수정)
-- path/to/file1.java
-- path/to/file2.java
-
-## 수정 금지 파일
-<다른 teammate가 소유한 파일 목록>
-
-## 코딩 규칙
-<CLAUDE.md에서 추출한 핵심 규칙>
-
-## 완료 기준
-<해당 작업의 인수조건>
+ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
 ```
 
-**4A-3. 팀 실행 및 모니터링**
+> Agent tool 의 `team_name` / `name` 파라미터는 default 로드돼 있어 별도 fetch 불필요.
 
-- Lead가 각 teammate의 plan을 승인
-- 파일 충돌 발생 시 즉시 중단하고 사용자에게 알림
-- 모든 teammate 완료 후 통합 빌드 검증
+**4A-1. 팀 생성**
 
-**4A-4. 통합 후 Step 5로 이동**
+```
+TeamCreate({
+  team_name: "PROJ-<KEY>",          // 예: "PROJ-49"
+  agent_type: "lead",
+  description: "<이슈 제목> — N slice 병렬 구현 (jira-execute)"
+})
+```
+
+생성 시 `~/.claude/teams/PROJ-<KEY>/config.json` + `~/.claude/tasks/PROJ-<KEY>/` 가 만들어집니다.
+
+**4A-2. Task list 작성**
+
+dev-guide § 5 "Agent Teams 구성" 표의 각 행(또는 `--subtasks` 모드에서는 각 slice dev-guide)을 1 task 로 변환:
+
+```
+FOR each row in "Agent Teams 구성":
+  TaskCreate({
+    subject: "<역할명> — <담당 범위 요약 (1줄)>",
+    description: """
+      ## 담당 파일 (자기 owned, 다른 teammate 의 owned 파일은 수정 금지)
+      - <파일1>
+      - <파일2>
+
+      ## dev-guide 참조
+      `docs/PROJ-<KEY>-dev-guide.md` § 3 Phase <N> + § 5 작업 의존성
+
+      ## 완료 기준
+      - 단위 테스트 GREEN
+      - 자기 소유 파일만 수정 (git diff 확인)
+      - 빌드는 lead 가 통합 단계에서 1회 수행 — teammate 는 compile 만 보장
+    """,
+    activeForm: "<역할명> 작업 중"
+  })
+```
+
+작업 의존성이 있으면 (§ 5 작업 의존성 다이어그램 참조) `TaskUpdate({ taskId, addBlockedBy: [...] })` 로 DAG 구성.
+
+**4A-3. Teammate spawn + pre-assign**
+
+각 슬라이스마다 (a) Agent spawn → (b) lead 가 즉시 TaskUpdate 로 owner 지정 (self-claim race 방지):
+
+```
+FOR each row in "Agent Teams 구성":
+  # (a) teammate spawn
+  Agent({
+    description: "<역할명> teammate",
+    subagent_type: "<§ 5 에 명시된 agent>",     // 예: app-back-cqrs-refactorer. 없으면 "general-purpose"
+    team_name: "PROJ-<KEY>",
+    name: "<slug-역할명>",                        // 예: "slice-PROJ-163". 이 name 이 TaskUpdate(owner) 값
+    prompt: """
+      당신은 팀 `PROJ-<KEY>` 의 `<slug-역할명>` 입니다.
+
+      ## 역할
+      <스택 페르소나> — <역할 한줄 요약>
+
+      ## 자기 task
+      `TaskList` 호출 → owner 가 `<slug-역할명>` 인 task 1건 → `TaskGet` 으로 상세 확인 → `TaskUpdate({ taskId, status: "in_progress" })` 로 시작.
+
+      ## 작업 규칙
+      - 자기 task description 의 "담당 파일" 만 수정. 다른 teammate 파일은 read-only.
+      - 다른 teammate 와 contract (interface/method signature) 합의가 필요하면 SendMessage 로 직접 협의 — lead 우회 X.
+      - 단위 테스트 작성 + GREEN 확인.
+      - 완료 시 `TaskUpdate({ taskId, status: "completed" })` + idle. 통합 빌드/Codex review 는 lead 책임이므로 시도 X.
+
+      ## 프로젝트 컨텍스트
+      - CLAUDE.md 자동 로드됨 (working dir 기준)
+      - dev-guide: `docs/PROJ-<KEY>-dev-guide.md`
+      - slice dev-guide (있으면): `docs/PROJ-<KEY>-<SUB>-dev-guide.md`
+    """,
+    mode: "default"   // dev-guide § 5 에 "plan approval 필수" 명시 시 "plan"
+  })
+
+  # (b) 즉시 task assign — self-claim race 방지
+  TaskUpdate({ taskId: "<해당 slice 의 task id>", owner: "<slug-역할명>" })
+```
+
+> **왜 self-claim 대신 pre-assign**: 공식 문서가 둘 다 허용하지만, lead 가 spawn 직후 `TaskUpdate(owner)` 로 명시 assign 하면 (i) teammate 가 자기 task 를 찾을 때 owner 매칭으로 결정론적, (ii) DAG 의 blocked task 가 잘못 claim 되는 일 없음, (iii) 디버깅 시 lead 시점에서 누가 무엇을 받았는지 명확.
+
+> `mode: "plan"` 사용 시 teammate 가 plan 제출 → lead 가 검토 후 approve/reject. lead 의 approve 기준은 dev-guide § 5 의 "파일 충돌 방지" + "완료 기준" 충족 여부.
+
+**4A-4. 진행 모니터링 (lead 의 의무)**
+
+- Teammate idle 알림은 자동 메시지로 도착 — polling 금지.
+- 5 분 이상 응답 없는 task: `SendMessage({ to: "<name>", message: "<상태 확인 1줄>" })`.
+- File conflict 의심 (예: 두 teammate 가 동일 import 추가): `git diff --name-only` 로 owned 파일 매트릭스 검증. 위반 시 즉시 해당 teammate 에 `SendMessage` 로 중단 지시 + 사용자 알림.
+- DAG 상 blocked 였던 task 는 선행 완료 시 자동 unblock. lead 가 새 task 추가가 필요하면 `TaskCreate` 후 `SendMessage` 로 idle teammate 깨움.
+
+**4A-5. 통합 진입 조건만 확인 (빌드는 Step 7 에서 1회)**
+
+모든 task 가 `completed` 가 되면:
+
+```
+1. TaskList 로 status=pending|in_progress 인 task 가 0개임을 확인
+2. teammate 는 idle 상태 유지 (아직 종료 X) — Codex review/빌드 실패 시 fix 위해 깨울 수 있음
+3. → Step 5 (출력) → Step 6 (Codex) → Step 7 (빌드 검증) 정상 흐름 진입
+```
+
+> **빌드 중복 금지**: 4A 안에서 빌드를 돌리지 않습니다. 통합 빌드는 Step 7 에서 1회. teammate 마다 자기 영역 compile 만 보장 (단위 테스트 GREEN).
+
+**4A-6. Teammate completion 단위 출력 (Step 5 대체)**
+
+순차 모드의 Phase 출력 대신, teammate 단위로:
+```
+✅ <slug-역할명> 완료: <task subject>
+  수정: <파일 N개>
+  단위 테스트: GREEN / N건
+```
+
+**4A-7. Teardown — Step 7 빌드 검증 통과 직후**
+
+Step 7 빌드 통과 + Step 8 Jira 코멘트 직전에:
+
+```
+1. 빌드 실패 시 (Step 7) → 책임 teammate 식별 → SendMessage({ to: "<name>", message: "<수정 지시>" })
+   teammate idle 상태에서 메시지 받으면 깨어남 → fix → 완료 → 다시 Step 7 빌드
+2. 빌드 통과 시 → 각 teammate 종료:
+   FOR each teammate:
+     SendMessage({ to: "<name>", message: { type: "shutdown_request" } })
+   teammate 가 reject 하면 (드물게 발생) — 사용자에게 reject 사유 보고 후 진행 여부 확인
+3. 모든 teammate idle/종료 확인 후 사용자에게 cleanup 안내:
+   "팀 정리하려면 lead 채팅에 'clean up the team' 이라고 입력하세요"
+```
+
+> **왜 lead 자동 cleanup 안 하나**: 공식 문서 — "Always use the lead to clean up. Teammates should not run cleanup". cleanup 호출자는 lead 가 맞지만 **트리거는 사용자 명시 입력**. 자동 cleanup 은 active teammate 잔존 시 resource 불일치 위험.
 
 ### 4B. 순차 실행 모드
 
@@ -190,7 +294,26 @@ CODEX_SCRIPT=$(printf '%s\n' "$HOME"/.claude/plugins/cache/openai-codex/codex/*/
 - `$CODEX_SCRIPT` 가 비어있으면 미설치 → Step 6-3 으로 분기
 - 비어있지 않으면 Step 6-2 진행
 
-**Step 6-2. 실행** (설치된 경우 — 스킵 금지):
+**Step 6-2. 실행 전 working-tree 정리 (EISDIR / ENOENT 회피)**
+
+Codex companion 은 `git status` 의 `??` (untracked) 라인을 그대로 파일로 간주해 `fs.readFile()` 를 시도합니다. 항목이 디렉토리이거나 `.gitignore` 에 디렉토리 패턴(`foo/`)만 있어 파일 (`foo`) 이 untracked 로 남으면 EISDIR / ENOENT 로 즉시 죽습니다. 모노레포 (sub-repo `.git` 없는 통합 repo) 에서 특히 잘 터집니다.
+
+**필수 사전 점검 (Codex 호출 직전 1회)**:
+
+```bash
+# 1) untracked 디렉토리 / 슬래시 mismatch 가 있는 ignore 패턴 확인
+git status --short | grep -E '^\?\?' | awk '{print $2}'
+```
+
+위 출력에 다음 중 하나라도 있으면 **반드시 처리 후** Codex 호출:
+
+| 패턴 | 처리 |
+|------|------|
+| `path/to/dir/` (슬래시 끝, 디렉토리) | (a) `.gitignore` 에 추가하거나 (b) `git add path/to/dir/` 로 staging — 파일 단위로 펼침 |
+| `.graphify_python` (파일인데 `.gitignore` 엔 `.graphify_python/` 만 있음) | `.gitignore` 패턴에서 슬래시 제거 → 파일/디렉토리 둘 다 매칭 |
+| 새 도메인 디렉토리 (`controller/`, `dto/` 등) | `git add` 로 staging — 파일 단위 펼침 |
+
+**Step 6-3. 실행** (설치된 경우 — 스킵 금지):
 
 ```bash
 node "$CODEX_SCRIPT" adversarial-review --wait --scope working-tree
@@ -200,6 +323,16 @@ node "$CODEX_SCRIPT" adversarial-review --wait --scope working-tree
 - `--scope working-tree`: 워킹 트리 변경사항 리뷰
 
 이 호출은 **건너뛰지 않습니다**. 루프 모드, `--subtasks` 모드, 단일 이슈 — 어떤 컨텍스트에서도. 시간이 부족하다고 판단되더라도 실행합니다 (사용자의 명시적 정책).
+
+**Step 6-3-b. EISDIR / ENOENT 진단 매트릭스** (실행 실패 시):
+
+| 증상 | 원인 | 빠른 fix |
+|------|------|---------|
+| `EISDIR: illegal operation on a directory, read` | untracked 빈/내용 디렉토리를 파일처럼 read | `.gitignore` 추가 또는 `git add <dir>` 로 펼침 |
+| `ENOENT: no such file or directory, stat 'D:\<root>\src\...'` | 모노레포 sub-repo (예: `app-back/`) 안에서 호출했는데 git 이 root 기준 경로를 반환 | 모노레포 **root 에서 호출** (sub-repo 안에서 호출 X) |
+| `EISDIR` 가 cwd=root 에서도 재현 | untracked dir 여전히 존재 | 위 Step 6-2 의 점검 다시 |
+
+재시도 후에도 동일하게 실패하면 사용자에게 알리고 진행 여부 확인.
 
 **Step 6-3. 미설치 시 (스킵 허용 — 단, 명시 출력)**:
 
@@ -307,18 +440,32 @@ git diff --stat
 - 사이드 이펙트 방지가 핵심 원칙 — 가이드에 없는 변경은 하지 않음
 - CLAUDE.md에 프로젝트별 빌드/린트 명령이 있으면 우선 사용
 - **Codex adversarial review (Step 6)는 Codex 설치 시 필수** — 루프/병렬/단일 모드 무관, 시간 압박 시에도 스킵 금지. 미설치 시에만 명시 출력 후 진행
+- **Agent Teams 트리거 (§ 4A)**: dev-guide 의 `## 5. 병렬 작업 가이드` + "Agent Teams 구성" 표 자동 감지. 사용자 추가 확인 X. 미설정 (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 부재) 시 § 4B 순차 모드로 폴백
+- **Agent Teams 진입은 자연어 묘사가 아닌 도구 시퀀스**: § 4A-0 ToolSearch → 4A-1 TeamCreate → 4A-2 TaskCreate × N → 4A-3 Agent(team_name,name) × N → 4A-4 모니터링 → 4A-5 SendMessage(shutdown_request). "팀 만들어줘" 식 자연어로 위임 금지 — Lead 가 직접 호출
+- **`--subtasks` 모드의 worktree 분기 제거 (2026-05-13)**: ADR-070 의 manual worktree 패턴 → Agent Teams 의 disjoint-files 패턴으로 대체. 자세히는 § "--subtasks Mode" 의 supersession 노트
 
-## --subtasks Mode
+## --subtasks Mode (Agent Teams 통합)
 
-사용자가 `/jira-execute <KEY> --subtasks` 로 호출 시:
+사용자가 `/jira-execute <KEY> --subtasks` 로 호출 시 — slice fan-out 은 **Agent Teams 로 처리** (worktree 분기 X, 단일 working tree + disjoint files):
 
-1. 부모 dev-guide 의 Phase 0 (scaffold) → Phase 1 (slice fan-out) → Phase 2 (통합) 순서로 진행
-2. **slice 별 구현 완료 시점**에 해당 하위 이슈에 1~3 줄 댓글 추가:
+1. **Phase 0 (scaffold)** — 부모 dev-guide § 3 Phase 0 (DTO/interface/migration) 를 lead 가 직접 수행. teammate spawn 전에 끝내야 slice 들이 공통 contract 위에서 동작.
+2. **Phase 1 (slice fan-out)** — § 4A 절차 그대로:
+   - `TeamCreate({ team_name: "PROJ-<PARENT>", agent_type: "lead" })`
+   - 각 slice (`PROJ-<SUB>`) 마다 `TaskCreate` + `Agent({ team_name, name: "slice-PROJ-<SUB>", ... })`
+   - 각 teammate prompt 에 slice dev-guide 경로 명시: `docs/PROJ-<PARENT>-PROJ-<SUB>-dev-guide.md`
+3. **slice 별 댓글** — teammate 가 자기 task 를 `completed` 로 마킹할 때, lead 가 하위 이슈에 1~3 줄 댓글 추가 (Jira tool 호출은 lead 가):
    ```
    🔨 구현 완료. 단위 테스트 N PASS.
-   통합 검증 + harness verdict 은 부모 `<KEY>` 댓글 참조.
+   통합 검증 + harness verdict 은 부모 `<PARENT-KEY>` 댓글 참조.
    ```
-3. Phase 1 fan-out 은 worktree 4개 (slice 마다) 또는 sequential — touched-files disjoint 검증 후 결정
-4. 통합 빌드 (Phase 2) 는 부모에서 1회만 수행 — 하위 댓글에 다시 인용 X
+4. **Phase 2 (통합 빌드)** — 모든 slice teammate `completed` 이후 lead 가 단일 빌드 1회. 하위 댓글에 재인용 X.
+5. **Teardown** — § 4A-5 절차 (SendMessage shutdown_request → 사용자에게 "clean up the team" 안내).
+
+> **Worktree 미사용 — ADR-070 supersession**: 종전 ADR-070 은 `git worktree add` + `Agent({ cwd: <worktree path> })` 패턴이었으나, Agent Teams 도입 후 **단일 working tree + disjoint files + shared task list** 패턴으로 대체. 이유:
+> - Teammate 끼리 SendMessage 직접 통신 가능 → contract 합의가 lead 우회 가능 (worktree 격리 모델에서는 불가)
+> - manual worktree create/remove cleanup 부담 제거
+> - Phase 0 scaffold 가 모든 teammate 에 자동 visible (worktree base branch fork 이슈 #50850 회피)
+>
+> 단점 (감수): 두 teammate 가 동일 파일 수정 시 마지막 write win. § 4A-2 의 "담당 파일" 정의 + § 4A-4 의 `git diff --name-only` 모니터링으로 방지.
 
 자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3, § 5

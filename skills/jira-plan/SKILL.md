@@ -223,6 +223,48 @@ Phase 1 (독립)  →  Phase 2 (Phase 1 완료 후)
 다음 단계: /jira-execute <ISSUE-KEY>
 ```
 
+### 6. Wiki Ingest 자동 Chain (forecast 단계) — **MANDATORY**
+
+> ⛔ **이 단계는 선택 사항 아님.** dev-guide 가 막 생성된 시점은 wiki INDEX 에 forecast entry 를 등록하는 **유일한 정상 시점**이다. `docs/INDEX-SCHEMA.md` 가 존재하는데 본 chain 을 누락하면 wiki 가 drift 한다 (orphan dev-guide, planned 누락 → 이후 closure 단계에서 row 가 갑자기 튀어나오는 비대칭).
+>
+> 본 절은 §1~§5 가 끝난 직후 **반드시** 실행한다. 사용자에게 "ingest 할까요?" 라고 물어보지 않는다 (조용한 누락 방지 — 명시적 `--no-ingest` 플래그만 인정).
+>
+> Karpathy LLM Wiki 패턴 적용 프로젝트는 `docs/INDEX-SCHEMA.md` 존재로 식별.
+
+```
+조건: docs/INDEX-SCHEMA.md 존재 AND 사용자가 --no-ingest 플래그 전달 안 함
+호출: Skill('jira-ingest', '<KEY> forecast 모드로 ingest — dev-guide 가 방금 생성됨')
+```
+
+`--subtasks` 모드면 flag 자동 전파 (`_subtasks-convention.md` § 7 패턴):
+```
+Skill('jira-ingest', '<KEY> forecast --subtasks')
+```
+
+**자기 점검 (skill 종료 직전 last-mile check)**:
+1. `docs/INDEX-SCHEMA.md` 존재? → 존재하면 본 §6 chain 호출 흔적이 conversation 에 있어야 함
+2. 호출 흔적 없으면 → **지금 즉시 호출** + 사용자에게 "§6 chain 누락 감지 → 사후 호출함" 1줄 보고
+3. 그래도 호출 못 한 사유 (skill 부재 등) 가 있으면 사용자에게 명시 경고
+
+**조건 미충족 시 (wiki 미설정 프로젝트) 만 skip**:
+- `docs/INDEX-SCHEMA.md` 부재 → "wiki 미설정 프로젝트 — ingest skip" 한 줄 로그만 출력
+- jira-ingest 가 first-run onboarding 으로 진입하지 않도록 **jira-plan 안에서는 호출 자체를 skip** (사용자가 명시적으로 wiki 셋업 의도를 보일 때만 first-run flow 진입이 자연스러움)
+
+**실패 격리**: ingest chain 실패해도 jira-plan 자체는 PASS — 위 §5 결과 출력은 이미 완료된 상태. 실패 시 경고만 출력하고 다음 단계 (/jira-execute) 안내 계속. 단 실패 자체는 **반드시 사용자에게 가시화** — 조용한 skip 금지.
+
+### 7. 결과 출력 (Wiki ingest 후 보강)
+
+§5 출력에 다음 라인 1개 추가 (ingest chain 이 호출된 경우만):
+
+```
+📚 Wiki ingest: forecast 등록 완료 (INDEX.md row added, LOG.md append)
+```
+
+ingest 가 skip 된 경우:
+```
+📚 Wiki ingest: skip (docs/INDEX-SCHEMA.md 부재 — wiki 미설정)
+```
+
 ## Error Handling
 
 - 이슈가 존재하지 않으면 오류 메시지 출력

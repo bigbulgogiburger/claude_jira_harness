@@ -28,12 +28,15 @@
 | **jira-start** | In Progress 전환 + 댓글 + feature 브랜치 | **모든 하위** In Progress 전환 + 1줄 댓글 ("부모 `<KEY>` 일부로 시작 — 같은 브랜치 `feat/<KEY>` 공유") |
 | **jira-clarify** | description 갱신 + Q&A | (선택) 각 하위 description 에 slice 컨텍스트 1~2 문단 추가 — Q&A 결과가 slice 별로 구분되는 경우만 |
 | **jira-plan** | `docs/<KEY>-dev-guide.md` 작성 | slice dev-guide `docs/<KEY>-<sub>-dev-guide.md` 추가 작성 + 각 하위에 댓글 ("dev-guide: `<경로>`") |
+| **jira-ingest** (forecast) | `INDEX.md` 에 부모 row 추가 (key=`<KEY>`, status=planned) + `LOG.md` forecast 1줄 | 각 slice 의 INDEX row 추가 (key=`<KEY>::<sub>`, parent=`<KEY>`) + LOG slice forecast 1줄/슬라이스. **하위 Jira 댓글 없음** (wiki 자산은 로컬 파일이라 Jira 노이즈 회피) |
+| **jira-ingest** (closure) | INDEX row 갱신 (status=closed) + LOG closure + conditional cross-ref (ADR/sprint) | 각 slice INDEX row closed 갱신 + LOG slice closure. Conditional cross-ref 는 부모 한 번만 (slice 별 ADR ref 가 같으면 중복 회피) |
 | **harness-plan** | `sprint-contract/<KEY>.md` | (산출물은 부모 contract 에 slice 별 DoD 인라인 — 하위 댓글 불필요. 단 verdict 미반영 시 사용자 알림) |
-| **jira-execute** | 구현 + Phase 댓글 | 각 slice 구현 완료 시점에 해당 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`") |
+| **jira-execute** | Phase 0 scaffold + Agent Teams lead + 통합 빌드 + Phase 댓글 | **Agent Teams 모드** (worktree 미사용 — ADR-070 supersession). `TeamCreate({team_name:"PROJ-<PARENT>"})` + slice 마다 `TaskCreate` + `Agent({team_name, name:"slice-PROJ-<SUB>", ...})` spawn. teammate 가 자기 task `completed` 시 lead 가 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`") |
 | **harness-review** | aggregate-verdict | slice 별 verdict 가 있으면 `aggregate-verdict/<KEY>-<sub>.md` 추가, 부모 verdict 에서 롤업 |
 | **jira-test** | 통합 빌드/테스트 + 댓글 | (생략 OK — 통합 검증은 부모 산출물. 단 slice 별 단위 테스트 결과를 부모 댓글에 인용) |
 | **jira-commit** | git commit + 댓글 | **모든 하위**에 commit SHA + 1줄 ("commit `<sha>` 에 통합 — 부모 `<KEY>` 댓글 참조") |
 | **jira-complete** | QA 전이 + push + archive | **모든 하위** QA 전이 + 1줄 댓글 ("부모 `<KEY>` 와 동시 QA 전이. 통합 결과 + harness verdict 는 부모 댓글") |
+| **wiki-lint** | corpus-scoped (전체 wiki 점검) | **N/A** — 본 스킬은 issue-scope 가 아니라 wiki 전체 검사. `--subtasks` 받아도 무시 + 1줄 경고 ("wiki-lint 는 corpus-scoped — `--subtasks` 무관") |
 
 ## 4. 표준 절차 (모든 스킬 공통)
 
@@ -110,6 +113,11 @@ ELSE:
 
 `workflow-state.json` 에 `subtasks_mode: true` + `subtasks: [...]` 기록 → 중간 재개 시에도 모드 보존.
 
+**Wiki chain 자동 전파** (jira-ingest / wiki-lint 는 harness-workflow 가 직접 호출하지 않음 — 부모 스킬 안의 자동 chain):
+- `jira-plan` §6 → `jira-ingest` forecast 호출 시 `--subtasks` 자동 전파
+- `jira-complete` §4.4 → `jira-ingest` closure 호출 시 `--subtasks` 자동 전파
+- `jira-complete` §4.7 → `wiki-lint` 호출 — `--subtasks` 무관 (corpus-scoped)
+
 ## 8. 사후 보정 (이미 누락된 경우)
 
 부모 이슈가 이미 QA 인데 하위가 To Do 그대로 남은 상황 (구버전 스킬로 작업) — 다음 단계로 보정:
@@ -125,4 +133,7 @@ ELSE:
 
 ---
 
-**Last Updated**: 2026-05-07 (PROJ-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)
+**Last Updated**: 2026-05-14 (jira-ingest forecast/closure 행 + wiki-lint 행 추가 — Karpathy LLM Wiki 패턴 도입. wiki-lint 는 corpus-scoped 라 `--subtasks` N/A. § 7 에 wiki chain 자동 전파 규칙 추가)
+
+**Previous**: 2026-05-13 (jira-execute § "--subtasks Mode" 를 Agent Teams 기반으로 재작성 — worktree 4분기 패턴 supersede)
+**Previous**: 2026-05-07 (PROJ-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)

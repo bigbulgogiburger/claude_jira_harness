@@ -103,6 +103,9 @@ triggers:
 3. Skill tool로 /jira-plan <ISSUE-KEY> [--subtasks] 호출
    → 부모 dev-guide.md 생성
    → (--subtasks) slice dev-guide N장 추가 + 각 하위에 댓글
+   → (자동 chain) jira-plan §6 — docs/INDEX-SCHEMA.md 있으면 jira-ingest forecast 자동 호출
+                   INDEX.md row 추가 (status=planned) + LOG append
+                   wiki 미설정 프로젝트는 skip
    → state.dev_guide_path = <생성된 경로>
    → state.stage = "planning"
 
@@ -171,12 +174,27 @@ OUTER LOOP (Phase 단위):
 
 ### Phase 7: 완료
 
+> ⛔ **Phase 7 은 반드시 `Skill('jira-complete', ...)` 로 진입할 것.** harness-workflow 가 직접 `mcp__atlassian__transitionJiraIssue` + `git push` + comment 만 호출하고 jira-complete skill 자체를 우회하면 §4.4 (ingest closure) + §4.6 (organize CLAUDE.md) + §4.7 (wiki-lint summary) chain 이 통째로 발화 안 한다 (2026-05-14 PROJ-208 사고). transition/push 를 본 skill 안에서 미리 한 경우라도 §4.4/§4.6/§4.7 발화를 위해 jira-complete skill 을 후속 호출해야 한다.
+>
+> 또한 Phase 3 도 동일 — 반드시 `Skill('jira-plan', ...)` 로 진입해야 §6 (ingest forecast) chain 이 발화. harness-workflow 가 직접 dev-guide 만 작성하고 jira-plan skill 우회하면 forecast 단계 누락 → closure 단계에서 row 가 갑자기 튀어나오는 비대칭.
+
 ```
 12. Skill tool로 /jira-complete <ISSUE-KEY> [--subtasks] 호출
     → 부모 QA 전이 + 푸시 + archive
     → (--subtasks) 모든 하위 QA 전이 + 짧은 댓글
+    → (자동 chain) jira-complete §4.4 — wiki 설정된 프로젝트면 jira-ingest closure 자동 호출
+                   INDEX status=closed + cross-ref (ADR/sprint week·track) 갱신
+    → CLAUDE.md 위생 체크 자동 포함 (jira-complete §4.6) — 임계점 도달 시
+      organize-claude-md 자동 호출 + Phase 6 사용자 승인 대기.
+    → (자동 chain) jira-complete §4.7 — wiki 설정된 프로젝트면 wiki-lint summary 자동 호출
+                   high severity 만, non-blocking. 위반 보고만 출력.
     → state cleanup (workflow-state.json 삭제 또는 아카이브)
 ```
+
+**자기 점검 (harness-workflow 종료 직전 last-mile check)**:
+- `docs/INDEX-SCHEMA.md` 존재? → 본 워크플로 동안 jira-ingest forecast (Phase 3) + closure (Phase 7) 호출 흔적이 conversation 에 모두 있어야 함
+- wiki-lint summary (Phase 7) 호출 흔적도 있어야 함
+- 누락 감지 시 → **지금 즉시 일괄 호출** + 사용자에게 "Phase X chain 누락 감지 → 사후 호출함" 보고
 
 ## 중단 + 재개 지원
 
