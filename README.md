@@ -1,5 +1,7 @@
 # claude_jira_harness
 
+> Made by **dhpyun** ([@bigbulgogiburger](https://github.com/bigbulgogiburger)) — Jira × Harness × LLM Wiki 스킬 셋의 설계·구현·운영 SSoT 모두 본인이 작성.
+
 Jira 워크플로우 + Harness Engineering + LLM Wiki Claude Code 스킬 셋.
 
 Jira 이슈 한 줄짜리 요구사항을 받아서 → 등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료까지의 전 사이클을 슬래시 명령으로 묶고, 그 위에 다중 에이전트 리뷰(Harness)와 사후 채점/Shadow 비교, 그리고 산출물을 **영구 지식 자산(LLM Wiki)** 으로 누적하는 사용자 스코프 스킬 모음. 부가적으로 코드베이스 AI 준비도 감사, knowledge graph 추출, Spring Boot 리팩토링, raster 이미지 생성, CLAUDE.md 자동 정리까지 포함.
@@ -60,6 +62,40 @@ Karpathy LLM Wiki 패턴 기반. dev-guide, ADR, 외부 문서 등 모든 산출
 - `harness-workflow --subtasks` 가 자식 스킬 전부에 flag 자동 전파
 - 부모 이슈에 `subtasks` 가 없으면 일반 모드로 자동 폴백
 - 사후 보정 절차도 문서 §8 에 포함 (구버전으로 작업해서 하위가 To Do 로 남은 케이스)
+
+### Parallel Fan-out — 다중 부모 이슈 동시 실행 (2-tier)
+
+`/harness-workflow <KEY1> <KEY2> …` 형식으로 **여러 부모 이슈를 동시에** 진행할 때의 격리·직렬화·머지·복구 규칙. SKILL.md 의 단일 인스턴스 가정을 넘어서는 운영 모드. SSoT 는 [`skills/harness-workflow/parallel-fanout.md`](skills/harness-workflow/parallel-fanout.md) — 단일 인스턴스만 돌리면 본 문서 불필요.
+
+**2-Tier 구조**:
+- **Tier-1 (Outer)**: 메인 세션이 orchestrator. 각 부모 이슈마다 **git worktree 격리** + `Agent("workflow-PROJ-XXX")` 로 `/harness-workflow KEY --subtasks` 동시 fan-out
+- **Tier-2 (Inner)**: 각 worktree 안에서 ADR-070 패턴 — `TeamCreate` + 하위태스크 슬라이스별 teammate (평균 3~4 슬라이스)
+- 총 동시 에이전트 ≈ 부모 N × (1 워크플로 + ~3.2 teammate) — 5 부모 시 ~21 인스턴스
+
+**진입 게이트 (10 조건 全 충족 시에만)**:
+1. 부모 이슈 ≥ 2개 동시 진행 의도
+2. 부모 이슈 간 **코드 영역 충돌 매트릭스** 사전 분석 (PRIMARY 패키지 + import dependency)
+3. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 활성
+4. `HARNESS_MODE=auto` 또는 `suggest`
+5. **Flyway V 번호 사전 할당표** (worktree 마다 DDL 충돌 방지)
+6. 공유 파일 (예: `application.yml`, `package.json`) lock/직렬화 전략 합의
+7. token cost 1.5–2× 인지·승인 (단일×N 대비)
+8. working tree clean + 모든 부모 이슈가 같은 main 베이스에서 분기 가능
+9. (권장) Codex 설치 + sandbox 1385 우회 정착
+
+**핵심 직렬화 포인트**:
+- **머지 순서**: REF (import) 등급이 있는 경우, 의존 대상이 먼저 main 머지되어야 의존 측 통합 빌드 통과
+- **사용자 승인 게이트**: 5 인스턴스가 동시에 "이대로 진행할까요?" 묻지 않도록 orchestrator 가 메인에 직렬화 큐
+- **Hook 동시 발화**: post-commit / Flyway scan 등 글로벌 hook 의 race 방어
+- **PR / git merge 직렬화**: PR 동시 머지 = merge conflict 폭발 → orchestrator 가 큐로 처리
+
+**명시 금지**:
+- worktree 미사용 동시 실행 (= 동일 working tree 5 instance 침범)
+- Flyway V 번호 자동 할당 위임 (= 동일 V 번호 중복 발급)
+- 충돌 매트릭스 미작성 진입
+- 충돌 등급 REF 인 부모 동시 머지
+
+처음 시도라면 **3 인스턴스부터 시작** → OOM / rate-limit / hook race 관찰 후 5로 증분 권장. 실패 시 단일 인스턴스 순차 모드로 폴백.
 
 ### 부가 스킬·명령어 (2개)
 
@@ -136,6 +172,15 @@ done
 /harness-workflow PROJ-7 --subtasks
 ```
 
+여러 부모 이슈를 worktree 격리로 **동시에** 가려면 (진입 게이트 10조건 충족 필수):
+
+```
+/harness-workflow PROJ-214 PROJ-215 PROJ-216 --subtasks
+  # → orchestrator 가 3개 git worktree 격리 + Agent fan-out
+  # → 충돌 매트릭스 + Flyway V 번호 할당표 사전 확정 필수
+  # → 자세한 안전 가이드: skills/harness-workflow/parallel-fanout.md
+```
+
 새 프로젝트 합류 시 진단부터:
 
 ```
@@ -154,6 +199,12 @@ Jira 외부 정보 자산화:
 ## 라이선스
 
 MIT — `LICENSE` 참조.
+
+## Author
+
+**dhpyun** — [@bigbulgogiburger](https://github.com/bigbulgogiburger)
+
+본 스킬 셋의 설계·구현·SSoT 문서·운영 패턴 (jira-*, harness-*, llm-wiki / wiki-lint, parallel-fanout, organize-claude-md, _subtasks-convention) 일체가 본인 작품이다. 실제 사내 generic 프로젝트 (Spring Boot 3.3.8 / Vue 3 / Java 21) 운영 중 W1~W7 sprint 사이클에서 검증·정착됐다.
 
 ## 비고
 
