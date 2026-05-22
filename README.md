@@ -204,7 +204,7 @@ MIT — `LICENSE` 참조.
 
 **dhpyun** — [@bigbulgogiburger](https://github.com/bigbulgogiburger)
 
-본 스킬 셋의 설계·구현·SSoT 문서·운영 패턴 (jira-*, harness-*, llm-wiki / wiki-lint, parallel-fanout, organize-claude-md, _subtasks-convention) 일체가 본인 작품이다. 실제 사내 generic 프로젝트 (Spring Boot 3.3.8 / Vue 3 / Java 21) 운영 중 W1~W7 sprint 사이클에서 검증·정착됐다.
+본 스킬 셋의 설계·구현·SSoT 문서·운영 패턴 (jira-*, harness-*, llm-wiki / wiki-lint, parallel-fanout, organize-claude-md, _subtasks-convention) 일체가 본인 작품이다. 실제 사내 Spring Boot 3.3.8 / Vue 3 / Java 21 풀스택 프로젝트 운영 중 W1~W7 sprint 사이클에서 검증·정착됐다.
 
 ## 비고
 

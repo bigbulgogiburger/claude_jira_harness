@@ -57,7 +57,7 @@ Tier-2 (Inner, 각 worktree 안)  ── ADR-070 표준
 - Tier-1 워크플로 5
 - Tier-2 lead 5 (= Tier-1 자체가 lead 역할)
 - Tier-2 teammate ≈ 5 × 3.2 ≈ 16
-- harness-review fan-out (각 부모 안 inner loop) ≈ 5 × 4 stdback/stdfront agent = 20 (단, 동시 활성 보장 아님)
+- harness-review fan-out (각 부모 안 inner loop) ≈ 5 × 4 app-back/app-front agent = 20 (단, 동시 활성 보장 아님)
 
 **Concurrency 실측 권장**: 처음엔 **3 인스턴스부터** 시작해서 OOM / rate-limit / hook race 확인 후 5로 늘릴 것.
 
@@ -127,13 +127,13 @@ PRIMARY 패키지 + 참조 dependency (= "import 또는 호출 관계") 기준.
 
 ```powershell
 # 1) working tree clean 확인
-git -C D:\project status --porcelain
+git -C D:\<project> status --porcelain
 # (출력 없으면 OK)
 
 # 2) main 최신화
-git -C D:\project fetch origin
-git -C D:\project checkout main
-git -C D:\project pull --ff-only
+git -C D:\<project> fetch origin
+git -C D:\<project> checkout main
+git -C D:\<project> pull --ff-only
 
 # 3) (옵션 C 만) interface stub 사전 push
 #    PROJ-215 의 SettlementCalculator sealed interface (메서드 시그니처만, 본문 throw new UnsupportedOperationException)
@@ -141,13 +141,13 @@ git -C D:\project pull --ff-only
 #    → git push origin main  (사용자 명시 승인 후)
 
 # 4) worktree 5 개 생성
-$BASE = "D:\project\.claude\worktrees"
+$BASE = "D:\<project>\.claude\worktrees"
 foreach ($k in 214,215,216,217,218) {
-  git -C D:\project worktree add "$BASE\PROJ-$k" -b "feat/PROJ-$k"
+  git -C D:\<project> worktree add "$BASE\PROJ-$k" -b "feat/PROJ-$k"
 }
 
 # 5) 결과 확인
-git -C D:\project worktree list
+git -C D:\<project> worktree list
 ```
 
 각 worktree 는 **별도 working dir** 이고 `.claude/` 도 별도 복제됨. 단, `.claude/runtime/`, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.local.json` 은 git tracked → worktree 마다 동일 복제 → hook 실측 동작 동일 → **자연스럽게 worktree 격리**.
@@ -158,7 +158,7 @@ git -C D:\project worktree list
 ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
 
 TeamCreate({
-  team_name: "app-w6-parallel",
+  team_name: "app-parallel",
   agent_type: "orchestrator",
   description: "PROJ-214~218 다중 부모 병렬 워크플로 — wave 2-2-1 또는 full 5 동시"
 })
@@ -172,10 +172,10 @@ FOR each key in [214, 215, 216, 217, 218]:
     subject: "workflow-PROJ-<key>",
     description: """
       ## 목표
-      /harness-workflow PROJ-<key> --subtasks 를 worktree D:\project\.claude\worktrees\PROJ-<key> 에서 실행.
+      /harness-workflow PROJ-<key> --subtasks 를 worktree D:\<project>\.claude\worktrees\PROJ-<key> 에서 실행.
 
       ## 제약
-      - working dir: D:\project\.claude\worktrees\PROJ-<key>
+      - working dir: D:\<project>\.claude\worktrees\PROJ-<key>
       - 브랜치: feat/PROJ-<key>
       - 절대 main / 다른 worktree 의 파일 수정 금지
       - Flyway V 번호: § 7 표의 할당 사용
@@ -206,14 +206,14 @@ FOR each key in [214, 215, 216, 217, 218]:
   Agent({
     description: "PROJ-<key> 워크플로 실행",
     subagent_type: "general-purpose",
-    team_name: "app-w6-parallel",
+    team_name: "app-parallel",
     name: "workflow-PROJ-<key>",
     isolation: "worktree",                         # ★ 핵심 — claude 가 자동으로 worktree 컨텍스트 잡음
     prompt: """
-      당신은 팀 app-w6-parallel 의 workflow-PROJ-<key> 입니다.
+      당신은 팀 app-parallel 의 workflow-PROJ-<key> 입니다.
 
       ## 시작 절차
-      1. working dir 확인 (D:\project\.claude\worktrees\PROJ-<key> 이어야 함)
+      1. working dir 확인 (D:\<project>\.claude\worktrees\PROJ-<key> 이어야 함)
       2. TaskList → 자기 task (subject="workflow-PROJ-<key>") 의 description 정독
       3. TaskUpdate({ taskId, status: "in_progress" })
 
@@ -224,7 +224,7 @@ FOR each key in [214, 215, 216, 217, 218]:
       ## 금지 사항
       - INDEX.md, LOG.md, 08-decision-log.md 직접 편집 금지 (wiki append 는 orchestrator 에 위임)
         → jira-plan §6 / jira-complete §4.4 의 ingest chain 이 트리거되면 SendMessage 로 orchestrator 에 알리고 lock 대기
-      - 메인 working dir (D:\project) 의 파일 수정 금지
+      - 메인 working dir (D:\<project>) 의 파일 수정 금지
       - Codex review 동시 호출 금지 — SendMessage({to:"orchestrator", message:"codex-slot-request <KEY>"}) 보낸 뒤 ACK 받고 진행
 
       ## 완료 신고
@@ -276,7 +276,7 @@ FOR each key in [214, 215, 216, 217, 218]:
 
 ### 6-A. Wiki append mutex (INDEX.md / LOG.md / 08-decision-log.md / sprint/weeks)
 
-**문제**: 5 worktree 가 각자 `jira-ingest` 를 호출하면 같은 `D:\project\docs\INDEX.md` 를 동시 read-append-write → **데이터 손실**.
+**문제**: 5 worktree 가 각자 `jira-ingest` 를 호출하면 같은 `D:\<project>\docs\INDEX.md` 를 동시 read-append-write → **데이터 손실**.
 
 **해결**: 5 인스턴스는 직접 wiki 파일을 만지지 않고 **orchestrator 에 위임**.
 
@@ -287,7 +287,7 @@ jira-ingest chain 이 트리거되려는 시점:
 1. STOP — jira-ingest 호출 직전
 2. SendMessage({to: "orchestrator", message: "ingest-request <KEY> mode=forecast|closure payload=<json>"})
 3. orchestrator ACK 까지 대기 (busy-wait 금지, 1 message exchange 로 충분)
-4. orchestrator 가 본인 main worktree (D:\project) 에서 jira-ingest 를 순차 실행
+4. orchestrator 가 본인 main worktree (D:\<project>) 에서 jira-ingest 를 순차 실행
 5. 완료 후 ACK 받으면 다음 Phase 진행
 ```
 
@@ -295,7 +295,7 @@ orchestrator 측 처리:
 ```
 on message "ingest-request <KEY>":
   1. mutex 획득 (메모리 상 큐 — orchestrator 가 single-threaded 라 자연 직렬화)
-  2. cd D:\project  (메인 working dir)
+  2. cd D:\<project>  (메인 working dir)
   3. Skill('jira-ingest', '<KEY> --mode <mode>')   # 본 호출은 메인 worktree 에서 수행
   4. SendMessage({to: "workflow-PROJ-<KEY>", message: "ingest-ack"})
 ```
@@ -304,7 +304,7 @@ on message "ingest-request <KEY>":
 
 ### 6-B. harness-review subagent 폭주
 
-5 인스턴스 × inner loop 평균 1.5 iteration × stdback/stdfront fan-out 평균 4 agent = **최대 30 동시 subagent**. 실측은 그보다 낮지만 위험.
+5 인스턴스 × inner loop 평균 1.5 iteration × app-back/app-front fan-out 평균 4 agent = **최대 30 동시 subagent**. 실측은 그보다 낮지만 위험.
 
 **완화**:
 - Tier-1 orchestrator 가 `codex-slot-request` 와 동일 패턴으로 `review-slot-request` 도입 — 동시 review 인스턴스 2 로 제한
@@ -349,7 +349,7 @@ on message "ingest-request <KEY>":
 `/harness-workflow PROJ-2XX --subtasks` 가 Phase 5 (jira-execute) 진입 시 자동으로 ADR-070 Agent Teams 모드 진입. SKILL.md 본문 + `_subtasks-convention.md` § 3 jira-execute 행 그대로 따른다.
 
 **Tier-1 ↔ Tier-2 이름 충돌 회피**:
-- Tier-1 team name: `app-w6-parallel`
+- Tier-1 team name: `app-parallel`
 - Tier-1 agent name: `workflow-PROJ-<KEY>`
 - Tier-2 team name (각 인스턴스가 자동 생성): `PROJ-<KEY>`
 - Tier-2 agent name: `slice-PROJ-<SUB-KEY>`
@@ -386,7 +386,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 
 **모든 hook 이 pwd / git rev-parse --show-toplevel 기준** → worktree 자동 격리. 5 동시 발화 race 없음.
 
-**단 한 가지 예외**: 만약 사용자가 hooks 를 수정해서 절대경로 (`/d/project/.claude/runtime/...`) 를 hard-code 하면 격리 깨짐 → 본 plan 진입 전 § 0-1 부록 체크리스트로 확인.
+**단 한 가지 예외**: 만약 사용자가 hooks 를 수정해서 절대경로 (`/d/workspace/<project>/.claude/runtime/...`) 를 hard-code 하면 격리 깨짐 → 본 plan 진입 전 § 0-1 부록 체크리스트로 확인.
 
 ---
 
@@ -409,7 +409,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 ```
 1. git checkout main && git pull --ff-only
 2. git merge --no-ff feat/PROJ-<KEY>   (또는 PR 머지)
-3. cd D:\project (메인 worktree)
+3. cd D:\<project> (메인 worktree)
 4. ./gradlew clean build              ← 통합 빌드, GREEN 필수
 5. npm run build (FE 변경 있으면)
 6. Flyway 적용 (V<N>) — dev MySQL 에 migrate
@@ -471,7 +471,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 ### 14-2. Tier-1 spawn
 
 - [ ] ToolSearch 로 TeamCreate/Task*/SendMessage/Agent schema 로드
-- [ ] TeamCreate "app-w6-parallel"
+- [ ] TeamCreate "app-parallel"
 - [ ] TaskCreate 5 개 + DAG 의존성 (옵션 A: 217/216/218 blockedBy 215)
 - [ ] Agent spawn 5 개 (working dir 명시 + 프롬프트 § 5-3)
 - [ ] TaskUpdate(owner) 5 개
@@ -490,7 +490,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 - [ ] Flyway 통합 적용 (V14~V18)
 - [ ] organize-claude-md 1회 통합 실행 (§ 6-C)
 - [ ] wiki-lint 1회 (corpus-scoped)
-- [ ] `~/.claude/teams/app-w6-parallel/` 삭제 (TeamDelete)
+- [ ] `~/.claude/teams/app-parallel/` 삭제 (TeamDelete)
 - [ ] `~/.claude/teams/PROJ-214 ~ 218/` 5개 삭제 (각 Tier-2 lead 가 SKILL.md 정리 단계에서 자동)
 - [ ] worktree 5 개 삭제: `git worktree remove .claude/worktrees/PROJ-<KEY>` × 5
 - [ ] CLAUDE.md `Last Updated:` 갱신 (5 이슈 closure 요약)
@@ -505,7 +505,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 |------|---------|
 | 5 worktree 가 같은 main 브랜치 위에서 작업 | 브랜치 1개 동시 체크아웃 불가 → 반드시 각자 feat/PROJ-<KEY> |
 | Tier-1 agent 가 INDEX.md / LOG.md / 08-decision-log.md / sprint/weeks/*.md 직접 수정 | § 6-A wiki append race → 데이터 손실 |
-| Tier-1 agent 가 메인 working dir (D:\project) 의 파일 수정 | 다른 worktree 와 충돌 |
+| Tier-1 agent 가 메인 working dir (D:\<project>) 의 파일 수정 | 다른 worktree 와 충돌 |
 | 5 worktree 가 동시에 Flyway migrate 호출 | dev MySQL schema 단일 → migration race + 시퀀스 깨짐 |
 | 5 워크플로의 jira-complete 가 동시에 main 머지 push | main race + GitLab CI 동시 발화 → 사고 |
 | Codex review 5 동시 호출 | Windows sandbox 1385 lock → deadlock |
@@ -523,19 +523,19 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 ```powershell
 # 생성 (5개)
 foreach ($k in 214,215,216,217,218) {
-  git -C D:\project worktree add "D:\project\.claude\worktrees\PROJ-$k" -b "feat/PROJ-$k"
+  git -C D:\<project> worktree add "D:\<project>\.claude\worktrees\PROJ-$k" -b "feat/PROJ-$k"
 }
 
 # 확인
-git -C D:\project worktree list
+git -C D:\<project> worktree list
 
 # 정리 (작업 완료 후)
 foreach ($k in 214,215,216,217,218) {
-  git -C D:\project worktree remove "D:\project\.claude\worktrees\PROJ-$k"
+  git -C D:\<project> worktree remove "D:\<project>\.claude\worktrees\PROJ-$k"
 }
 # 머지 후 브랜치 정리
 foreach ($k in 214,215,216,217,218) {
-  git -C D:\project branch -d "feat/PROJ-$k"
+  git -C D:\<project> branch -d "feat/PROJ-$k"
 }
 ```
 
@@ -545,9 +545,9 @@ foreach ($k in 214,215,216,217,218) {
 
 ```
 ToolSearch({ query: "select:TeamCreate,TeamDelete,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
-TeamCreate({ team_name: "app-w6-parallel", agent_type: "orchestrator", description: "..." })
+TeamCreate({ team_name: "app-parallel", agent_type: "orchestrator", description: "..." })
 TaskCreate({ subject: "workflow-PROJ-214", description: "...", activeForm: "..." })
-Agent({ team_name: "app-w6-parallel", name: "workflow-PROJ-214", subagent_type: "general-purpose", prompt: "...", description: "..." })
+Agent({ team_name: "app-parallel", name: "workflow-PROJ-214", subagent_type: "general-purpose", prompt: "...", description: "..." })
 TaskUpdate({ taskId: "1", owner: "workflow-PROJ-214" })
 SendMessage({ to: "workflow-PROJ-214", message: "merge-ack <sha>", summary: "merge ack" })
 TeamDelete({})  # 작업 끝, 모두 idle 후
