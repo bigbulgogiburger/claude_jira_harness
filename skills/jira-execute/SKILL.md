@@ -89,6 +89,31 @@ ELSE:
 
 > 이 절은 자연어 묘사가 아니라 **구체적 도구 호출 시퀀스**입니다. 모든 step 을 순서대로 그대로 실행하세요. "팀 생성 프롬프트를 구성한다" 같은 추상 표현으로 대체 금지.
 
+> ## ⚠️ Sub-agent 회귀 안티패턴 차단 (모델 자가 점검 필수)
+>
+> Agent Teams 호출 시 모델이 흔히 `Agent({ subagent_type: "general-purpose", isolation: "worktree" })` 로 회귀합니다. **이건 sub-agent + 워크트리 격리** 이지 Agent Teams 가 **아닙니다**. 이름이 비슷해 자주 혼동 — 메모리에 "claude agent teams Wave 운영 패턴" 같은 비공식 명명이 있어도 그건 sub-agent 패턴이고 공식 Agent Teams 가 아닙니다.
+>
+> **회귀 신호 5 — 1개라도 보이면 STOP**:
+> 1. `TeamCreate` 호출 없이 `Agent` tool 만 호출
+> 2. `team_name` 파라미터 없이 `Agent` spawn
+> 3. `SendMessage` 미사용 + 메인이 직접 agent 결과 회수
+> 4. `isolation: "worktree"` 옵션을 "Agent Teams = 워크트리" 라고 동일시
+> 5. agent prompt 안에 "isolation 으로 격리한다" 만 적혀있고 팀 컨텍스트 (team_name, 다른 팀원 이름) 가 전무
+>
+> **강제 자가검증** (§ 4A-0 ToolSearch 호출 직전 1줄로 자기에게 묻기): "내가 호출하려는 도구 시퀀스가 `TeamCreate → TaskCreate × N → Agent({team_name, name}) × N → SendMessage` 인가? 단순 `Agent({isolation:worktree}) × N` 만이면 회귀 — § 4B 폴백 또는 사용자에게 '이 작업이 진짜 Agent Teams 가 적절한가, 아니면 sub-agent + worktree 로 충분한가' 재확인."
+>
+> **둘 차이 (도구 측면)**:
+>
+> | | sub-agent + `isolation:worktree` | 진짜 Agent Teams (이 § 4A) |
+> |---|---|---|
+> | 핵심 도구 | `Agent` tool 단독 | `TeamCreate` + `Agent({team_name, name})` + `SendMessage` + `TeamDelete` |
+> | 컨텍스트 | 자체 컨텍스트, 메인이 결과 회수 (단방향) | 자체 컨텍스트 + 메일박스 + 공유 task list |
+> | 팀원 간 통신 | 불가 (메인 거쳐야) | `SendMessage({to:"이름"})` 직접 메시지 |
+> | 적합 작업 | disjoint fan-out, dev-guide 4 파일 작성, 단순 조사 (토큰↓) | 협업·적대 토론·공유 contract 합의·multi-perspective 검토 (토큰↑↑) |
+> | 활성화 | 기본 도구 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + Claude Code v2.1.32+ + `teammateMode` |
+>
+> **언제 회귀가 정답인가**: 사용자가 명시적으로 "sub-agent + worktree 로 충분" 또는 "Agent Teams 비용 아끼자" 라고 했을 때만. 그 외엔 § 4A 시퀀스 그대로.
+
 **4A-0. Deferred tool 스키마 로드 (스킵 금지)**
 
 Agent Teams 도구들은 deferred — 기본 도구 목록에 스키마가 없습니다. 호출 전에 한 번만 ToolSearch 로 로드:

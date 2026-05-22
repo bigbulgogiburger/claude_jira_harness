@@ -155,6 +155,8 @@ UPDATE ...
 
 ### Agent Teams 구성 (권장)
 
+> ⚠️ **이 표를 작성하면 jira-execute § 4A 가 자동으로 진입** — `TeamCreate` + `Agent({team_name, name})` + `SendMessage` 도구 시퀀스가 강제됩니다. `Agent({isolation:"worktree"})` sub-agent 패턴으로 대체 불가 (이름이 비슷해 자주 혼동되지만 다른 메커니즘). 진짜 협업이 필요 없는 disjoint fan-out 이면 § 5 섹션 자체를 작성하지 말고 Phase 를 순차 설계하세요. 자세한 안티패턴 차단은 `jira-execute/SKILL.md § 4A` 의 ⚠️ Sub-agent 회귀 안티패턴 박스 참조.
+
 | 역할 | 담당 범위 | subagent 타입 |
 |------|----------|---------------|
 | <역할1> | <파일/모듈> | <agent-type 또는 없음> |
