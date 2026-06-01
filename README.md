@@ -124,11 +124,30 @@ Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출
 
 ## 🆕 What's New
 
-- **`/jira-plan` — Dynamic Workflow 모드** — 이슈 분석 시 단방향 fan-out + verify 엔진을 범용·조건부로 적용해 dev-guide 생성 흐름을 강화. 전면 대체가 아니라 plan PoC scope로 흡수.
+- **`/jira-plan` — Dynamic Workflow 모드** — 이슈 분석 시 Claude Code **v2.1.154+** 의 `Workflow` 툴로 단방향 fan-out + verify 엔진을 범용·조건부로 적용해 dev-guide 생성 흐름을 강화. 전면 대체가 아니라 plan PoC scope로 흡수하며, Workflow 미지원·구버전이면 인라인 모드로 자동 폴백 (자세히는 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조).
 - **`/harness-workflow` — 모드 결정 트리 + 멀티부모 병렬** — 단일/`--subtasks`/다중 부모를 자동 판별하는 결정 트리. `<KEY1> <KEY2> …`로 여러 부모를 git worktree 격리해 2-tier(Tier-1 워크플로 + Tier-2 teammate)로 동시 실행하며, 머지 순서·승인 게이트·Hook race를 orchestrator가 직렬화.
 - **`/graphify` — `references/` 리팩터 + 출력 확장** — 번들을 `references/`로 정리하고 산출물을 Obsidian·MCP·Neo4j·wiki 내보내기 + watch(증분 갱신)까지 확장.
 - **`/llm-wiki` — `references/` + `scripts/` 번들화** — Karpathy 2026-04 gist 패턴 적용. 모드 자동 추론(ingest/query/lint), 원본 보존 + build-time 합성 원칙 정착.
 - **`/wiki-lint` — 14 rules 전체 정의 + auto-patch** — L01~L15 규칙 전체 명문화, L14(Jira closure mismatch) + L15(coverage) 추가, JSON CI 출력 모드. `_wiki-schema.md`(SSoT) auto-patch로 스키마 정합성 자동 보정.
+
+## ⚙️ Dynamic Workflow & ultracode (선택)
+
+`/jira-plan` 은 영향 범위가 넓은 이슈에서 Claude Code 의 **Workflow 툴(Dynamic Workflows)** 로 *코드 + 위키 + 이슈 + memory* 를 멀티모달 fan-out → structured map → dev-guide 초안 → 적대적(adversarial) 검증까지 한 번에 돌리는 **Dynamic Workflow 모드 (A)** 를 옵션으로 지원한다. 조건 미충족이거나 Workflow 가 비활성이면 메인 세션이 직접 수행하는 **인라인 모드 (B)** 로 자동 폴백 — 구버전·미지원 환경에서도 깨지지 않는다.
+
+### 버전 요구사항
+
+| 기능 | 최소 버전 | 활성화 | 미충족 시 |
+| ---- | --------- | ------ | --------- |
+| **Workflow 툴 (Dynamic Workflows)** — `jira-plan` 모드 (A) | Claude Code **v2.1.154+** (2026-05-28) | 기본 활성 (별도 플래그 불필요) | `jira-plan` 인라인 모드 (B) 로 자동 폴백 |
+| **Agent Teams** — `parallel-fanout` Tier-2 / `jira-execute` 병렬 구현 | Claude Code **v2.1.32+** | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode` | 단방향 sub-agent fan-out 으로 폴백 (실험적·기본 비활성) |
+
+> 나머지 모든 스킬(Jira 사이클·Harness 리뷰·LLM Wiki)은 위 기능 없이도 동작한다. 버전 게이트는 **Dynamic Workflow / 병렬 fan-out 최적화 경로에만** 적용된다.
+
+### ultracode
+
+**ultracode** 는 켜져 있으면(세션의 system-reminder 로 확인) "모든 실질적 작업에 대해 기본으로 Workflow 를 작성·실행" 하도록 만드는 Claude Code 모드다 — 토큰 비용을 제약으로 두지 않고 최대한 철저한 fan-out + 검증을 지향한다. Dynamic Workflow 모드 (A) 와 같은 엔진을 전역 기본값으로 끌어올리는 스위치라고 보면 된다.
+
+> ⚠️ **전역 ON 은 권장하지 않는다.** Harness 를 `HARNESS_MODE=auto` 로 함께 쓰면 ultracode 가 워크플로우 **승인 게이트를 무력화**(프롬프트 자동 스킵)하고 토큰만 폭증한다. 이 스킬셋의 권장 방향은 ultracode 전역 활성 대신, fan-out + verify 엔진을 **understand(plan) / audit(repo-wide) / review(diff)** 3개 scope 로만 **선택 적용**하는 것이다 — `jira-plan` 의 Dynamic Workflow 모드 (A) 가 그 understand scope 구현이다.
 
 ## 🚀 빠른 시작
 
@@ -196,7 +215,9 @@ done
 
 ## 요구사항
 
-- Claude Code (CLI 또는 데스크톱 앱)
+- Claude Code (CLI 또는 데스크톱 앱) — 기본 Jira 사이클·Harness·LLM Wiki 는 버전 무관 동작
+- `/jira-plan` Dynamic Workflow 모드 (선택): `Workflow` 툴 = Claude Code **v2.1.154+** (기본 활성). 구버전이면 인라인 모드로 자동 폴백 — 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조
+- 멀티부모 병렬 fan-out / `jira-execute` 병렬 구현 (선택): Claude Code **v2.1.32+** + `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (실험적·기본 비활성)
 - Jira 사용 시: MCP Atlassian 서버가 활성화되어 있어야 함 (`mcp__atlassian__*` 도구 사용)
 - Harness 채점/리뷰는 프로젝트 루트에 `.claude/runtime/` 쓰기 권한 필요
 - LLM Wiki (`/jira-ingest`, `/llm-wiki`, `/wiki-lint`) 사용 시: 프로젝트 루트에 `docs/` 디렉토리 쓰기 권한
