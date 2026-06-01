@@ -105,12 +105,12 @@ stale_thresholds:
   last_activity_days: 14
 
 claude_md_integration:
-  mode: announce            # announce | auto-patch | skip
+  mode: auto-patch          # announce | auto-patch | skip
   target_section: "Planning Docs"
   block_template: |
-    | Wiki Index  | dev-guide 카탈로그·상태 조회         | docs/INDEX.md         |
-    | Wiki Log    | ingest 이벤트 로그 (append-only)     | docs/LOG.md           |
-    | Wiki Schema | 카테고리·정책 (사용자 편집)          | docs/INDEX-SCHEMA.md  |
+    | Wiki Index  | 작업 착수 시 관련 이슈·ADR cross-ref 조회 | docs/INDEX.md         |
+    | Wiki Log    | ingest 이벤트 로그 (append-only)          | docs/LOG.md           |
+    | Wiki Schema | wiki 카테고리·정책 (사용자 편집)          | docs/INDEX-SCHEMA.md  |
 ```
 
 ISSUE_PREFIX 는 첫 호출 시 프로젝트의 Jira 이슈 키 prefix 로부터 추론 (예: `STD`, `PROJ`, `SCRUM`).
@@ -303,7 +303,7 @@ PR diff 가 항상 5 파일 이내 보장.
 | `docs/INDEX-SCHEMA.md` 부재 | § 2 default schema 를 보여주고 "이걸로 `docs/INDEX-SCHEMA.md` 생성할까요?" 확인. 프로젝트 ISSUE_PREFIX 추론 (CLAUDE.md / Jira API 시도) |
 | `docs/INDEX.md` 부재 | bootstrap 권고 — "기존 dev-guide N개 발견. 카탈로그화할까요?" 확인 후 5+1 Pass |
 | `docs/LOG.md` 부재 | bootstrap 시 자동 생성 (git log 백필) |
-| `CLAUDE.md` 에 wiki 자산 row 부재 | § 15 의 `claude_md_integration` 정책 적용 (default `announce`) — bootstrap / onboarding 종료 직후 1회만 |
+| `CLAUDE.md` 에 wiki 자산 row 부재 | § 15 의 `claude_md_integration` 정책 적용 (default `auto-patch`, 첫 1회 승인) — bootstrap / onboarding 종료 직후 1회만 |
 | 정상 (모두 존재) | 호출자 의도 추론 후 진행 |
 
 ## 13. 호출자 의도 추론 — 자연어 우선, `--subtasks` 만 명시
@@ -341,14 +341,14 @@ bootstrap / onboarding 직후 CLAUDE.md 에 wiki 자산 안내가 없으면 **�
 
 | mode | 동작 |
 |------|------|
-| `announce` (default) | 보강 블록 templated text 만 출력. 사용자가 수동 복붙. **CLAUDE.md 무수정**. |
-| `auto-patch` | 사용자 승인 후 Edit 툴로 CLAUDE.md 의 `target_section` 표 끝에 row 추가. |
+| `auto-patch` (default) | 사용자 승인 후 Edit 툴로 CLAUDE.md 의 `target_section` 표 끝에 row 추가. |
+| `announce` | 보강 블록 templated text 만 출력. 사용자가 수동 복붙. **CLAUDE.md 무수정**. |
 | `skip` | 안내 자체 생략. |
 
-**왜 default 가 `announce` 인가?**
-- CLAUDE.md 는 사람 친화 문서. 자동 갱신 = PR 노이즈 + git blame 오염.
-- announce → 사용자 한 번 보고 직접 commit → 의도 + author 명확.
-- bounded_writes.forbidden 의 정신 ("CLAUDE.md 는 자동 갱신 금지") 과 일관.
+**왜 default 가 `auto-patch` 인가?**
+- 핵심 목적: wiki 를 build-time 에 쌓아도 **CLAUDE.md 가 가리키지 않으면 미래 LLM 세션이 안 읽음**. 활성화 직후 자동 가시화가 wiki 의 존재 이유.
+- auto-patch 는 무단 수정이 아님 — **첫 패치 1회 사용자 승인** 후 Edit. 승인 게이트가 PR 노이즈 / git blame 오염 우려를 통제.
+- announce 의 trade-off (사람 친화 문서, 수동 commit 으로 author 명확) 는 여전히 유효 → 자동 갱신을 원치 않는 프로젝트는 schema 에서 `announce` / `skip` 으로 격리.
 
 **호출 타이밍** (3 회만):
 - § 1 First-run Onboarding 종료 직후
@@ -368,5 +368,6 @@ CLAUDE.md grep "docs/INDEX.md"
 
 ---
 
-**Last Updated**: 2026-05-14 (§ 15 추가 — CLAUDE.md Integration 정책 + § 2 schema 에 claude_md_integration 키 + § 12 표 row 추가. 이유: 사용자 피드백 — 부트스트랩 후 CLAUDE.md 에 wiki 안내 없으면 미래 LLM 세션이 자산 활용 못 함)
+**Last Updated**: 2026-05-27 (§ 15 default `announce` → `auto-patch` 전환 + block_template 참조시점 칸을 행동 의도 ("작업 착수 시 관련 이슈·ADR 조회") 로 개선. 이유: 사용자 피드백 — announce 는 수동 복붙 단계가 실제로 실행 안 돼 wiki 가 CLAUDE.md 에 가시화 안 됨 → 미래 세션이 자산 미활용. auto-patch (첫 1회 승인) 가 가시화를 보장)
+**Previous**: 2026-05-14 (§ 15 추가 — CLAUDE.md Integration 정책 + § 2 schema 에 claude_md_integration 키 + § 12 표 row 추가. 이유: 사용자 피드백 — 부트스트랩 후 CLAUDE.md 에 wiki 안내 없으면 미래 LLM 세션이 자산 활용 못 함)
 **Previous**: 2026-05-14 (신설 — Karpathy LLM Wiki 패턴 도입 + jira-ingest/wiki-lint 두 스킬 SSoT)

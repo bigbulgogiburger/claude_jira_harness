@@ -386,7 +386,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 
 **모든 hook 이 pwd / git rev-parse --show-toplevel 기준** → worktree 자동 격리. 5 동시 발화 race 없음.
 
-**단 한 가지 예외**: 만약 사용자가 hooks 를 수정해서 절대경로 (`/d/workspace/<project>/.claude/runtime/...`) 를 hard-code 하면 격리 깨짐 → 본 plan 진입 전 § 0-1 부록 체크리스트로 확인.
+**단 한 가지 예외**: 만약 사용자가 hooks 를 수정해서 절대경로 (`/d/<project>/.claude/runtime/...`) 를 hard-code 하면 격리 깨짐 → 본 plan 진입 전 § 0-1 부록 체크리스트로 확인.
 
 ---
 

@@ -51,7 +51,91 @@ mcp__atlassian__searchJiraIssuesUsingJql → 관련 이슈/서브태스크 조�
 - 관련 이슈 (linked issues)
 - 첨부파일 목록 (있으면)
 
-### 3. 프로젝트 코드 분석
+### 3·4 수행 모드 선택 — Dynamic Workflow vs 인라인
+
+아래 **§3 코드 분석 + §4 dev-guide 생성** 은 두 모드 중 하나로 수행한다. 프로젝트·이슈 규모에 따라 자동 판단:
+
+| 모드 | 진입 조건 | 방식 |
+|------|----------|------|
+| **(A) Dynamic Workflow** | Workflow 기능 사용 가능(`disableWorkflows`≠true, 지원 버전) **AND** 영향 범위가 넓음(키워드상 다수 모듈/파일·교차 도메인) | `Workflow` 툴로 *코드+위키+이슈+memory* multi-modal fan-out → structured map → dev-guide 초안 → 반박 검증 |
+| **(B) 인라인** (기본·하위호환) | 위 조건 미충족 / 소규모 이슈 / workflow 비활성 | 메인 세션이 §3·§4 를 직접 수행 (아래 절차) |
+
+> **(B) 가 기본값**이다. Workflow 가 불확실하면 (B). (A) 는 "범위가 커서 컨텍스트 폭발이 우려될 때" 의 최적화이지 의무가 아니다.
+
+#### (A) Dynamic Workflow 모드 — Understand / Design / Verify
+
+> ⚠️ **범용 — 특정 프로젝트 경로를 하드코딩하지 말 것.** 아래 축은 *프로젝트에 실제 존재하는 소스만* 포함한다 (조건부). 산출물은 `docs/<KEY>-dev-guide.md.draft` 로 저장 → 메인 세션이 검토 후 확정 rename. 위키 쓰기(jira-ingest)·사용자 승인은 workflow 밖(§6 / 호출자).
+
+**축 구성 (해당하는 것만)**:
+- `code` — 스택 자동 감지된 소스 디렉토리(§1) 영향 파일·기존 패턴·충돌 지점 (항상)
+- `wiki` — `docs/INDEX.md` cross-ref + ADR(예: `docs/08-decision-log.md`)의 "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 → **`docs/INDEX-SCHEMA.md` 존재 시에만**
+- `issue` — §2 에서 수집한 Jira 본문/AC 를 프롬프트로 주입 (항상)
+- `memory` — 프로젝트 memory 인덱스가 있으면 (`~/.claude/projects/<slug>/memory/MEMORY.md`) 관련 함정 수집 → **있을 때만**
+
+**`Workflow` 툴에 전달할 스크립트 골격** (issueKey·축 목록·수집한 이슈 본문을 채워서 호출):
+
+```javascript
+export const meta = {
+  name: 'jira-plan-understand',
+  description: 'jira-plan Understand/Design/Verify — multi-modal sweep → dev-guide 초안 → 제약·영향범위 반박 검증',
+  phases: [{ title: 'Understand' }, { title: 'Design' }, { title: 'Verify' }],
+}
+const issueKey = (typeof args === 'string' ? args : args?.issueKey)?.trim()
+const FINDINGS = { type:'object', required:['axis','findings'], properties:{
+  axis:{type:'string'}, findings:{type:'array', items:{type:'object', required:['kind','ref','note'],
+  properties:{kind:{type:'string'},ref:{type:'string'},note:{type:'string'}}}} } }
+const VERIFY = { type:'object', required:['dimension','verdict','issues'], properties:{
+  dimension:{type:'string'}, verdict:{type:'string',enum:['PASS','REVISE']},
+  issues:{type:'array', items:{type:'object', required:['severity','detail','evidence'],
+  properties:{severity:{type:'string',enum:['blocker','advisory']},detail:{type:'string'},evidence:{type:'string'}}}} } }
+
+phase('Understand')
+// 축 구성: code 필수 / wiki·memory 조건부 / issue 본문 주입.
+// 호출 전 메인 세션이 hasWiki(docs/INDEX-SCHEMA.md 존재), hasMemory(프로젝트 memory 존재),
+// issueBody(§2 수집 Jira 본문·AC) 를 실제 값으로 치환해서 Workflow 의 script 로 전달.
+const hasWiki = HAS_WIKI    // ← true/false 치환
+const hasMemory = HAS_MEMORY  // ← true/false 치환
+const issueBody = ISSUE_BODY  // ← §2 본문 문자열 치환
+const AXES = [
+  { axis:'code',  prompt:`${issueKey} 영향 파일·기존 패턴·충돌 지점을 스택 소스 디렉토리에서 READ ONLY 수집. kind=impacted-file|pattern, ref=파일경로:라인.` },
+  ...(hasWiki ? [{ axis:'wiki', prompt:`${issueKey} 의 docs/INDEX.md cross-ref + ADR "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 수집(READ ONLY). kind=constraint|precedent, ref=ADR-NNN|PROJ-NNN|파일경로. 중복/모순 위험을 note 에.` }] : []),
+  { axis:'issue', prompt:`다음 이슈 요구사항·AC 를 정리: ${issueBody}. kind=requirement, ref=AC 번호 또는 ${issueKey}.` },
+  ...(hasMemory ? [{ axis:'memory', prompt:`${issueKey} 영역의 알려진 함정을 프로젝트 memory 인덱스에서 수집(READ ONLY). kind=trap, ref=memory slug.` }] : []),
+]
+const results = (await parallel(AXES.map(a => () =>
+  agent(a.prompt, { label:`understand:${a.axis}`, phase:'Understand', schema:FINDINGS, agentType:'Explore' })
+    .then(r => r && ({ ...r, _axis:a.axis }))))).filter(Boolean)
+// axis 는 agent 반환값(schema의 axis)을 신뢰하지 말고 AXES 가 부여한 값으로 고정 — agent 가 라벨을 임의 제목으로 채우는 문제 방지
+const map = results.flatMap(r => (r.findings||[]).map(f => ({ ...f, axis:r._axis })))
+const digest = map.map(f => `- [${f.axis}/${f.kind}] ${f.ref} — ${f.note}`).join('\n')
+
+phase('Design')
+const draftPath = `docs/${issueKey}-dev-guide.md.draft`
+const draft = await agent(`너는 이 스택의 시니어다. 아래 map 근거로 ${issueKey} dev-guide 초안을 §4 템플릿 구조로 작성해 ${draftPath} 에 Write 하라. wiki constraint(ADR NEVER 룰)는 "준수"로 명시.\n## map\n${digest}`, { phase:'Design' })
+
+phase('Verify')
+const dims = [
+  { d:'constraint-violation', p:`${draftPath} 가 ADR "NEVER 재도입 금지" 류 제약을 위반하는지 REFUTE. 위반=severity:blocker+evidence:ADR. 없으면 PASS.\n${map.filter(f=>f.kind==='constraint').map(f=>`- ${f.ref}: ${f.note}`).join('\n')||'(없음)'}` },
+  { d:'scope-completeness', p:`${draftPath} 영향범위가 불완전한지 REFUTE. code sweep impacted-file 중 누락/연쇄영향. 누락=blocker+evidence:파일. 완전하면 PASS.\n${map.filter(f=>f.axis==='code').map(f=>`- ${f.ref}: ${f.note}`).join('\n')||'(없음)'}` },
+]
+const v = (await parallel(dims.map(x => () =>
+  agent(x.p, { label:`verify:${x.d}`, phase:'Verify', schema:VERIFY, agentType:'Explore' })))).filter(Boolean)
+const blockers = v.flatMap(r => (r.issues||[]).filter(i => i.severity==='blocker').map(i => ({ dimension:r.dimension, ...i })))
+return { issueKey, draftPath, findings: map.length, verdict: blockers.length ? 'REVISE' : 'PASS', blockers, designSummary: draft }
+```
+
+**호출**: 위 스크립트의 `HAS_WIKI`/`HAS_MEMORY` 를 `true`/`false` 로, `ISSUE_BODY` 를 §2 수집 본문(백틱/줄바꿈 escape)으로 치환한 뒤 `Workflow({ script: <치환본>, args: "<ISSUE-KEY>" })` 로 실행. workflow 는 백그라운드 실행이며 완료 시 결과(JSON) 가 돌아온다.
+
+**모드 (A) 후처리**:
+1. workflow 결과의 `verdict` 확인 — `REVISE` 면 `blockers` 를 사용자에게 보고하고 보강(재실행 또는 수동 수정) 후 진행
+2. `PASS` 면 `docs/<KEY>-dev-guide.md.draft` 를 검토 → 문제 없으면 `docs/<KEY>-dev-guide.md` 로 확정(rename/저장)
+3. 이후 **§5·§6·§7 은 모드와 무관하게 동일하게 수행** (Jira 코멘트, wiki ingest forecast, 결과 출력)
+
+조정 가능(PoC 기본은 보수적): verifier 차원당 1명 → 신뢰도 필요 시 차원당 N=3 다수결, `code` 축 → BE/FE 2-reader 분할.
+
+---
+
+#### (B) 인라인 모드 — 프로젝트 코드 분석
 
 페르소나 관점에서 관련 코드를 분석합니다:
 

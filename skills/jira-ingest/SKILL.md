@@ -75,7 +75,7 @@ description: "jira-ingest — Karpathy LLM Wiki 패턴으로 docs/ 디렉토리�
 
 ### 1-3. CLAUDE.md 보강 안내 — wiki 자산 가시화
 
-`_wiki-schema.md` § 15 의 `claude_md_integration` 정책 적용 (default `announce`).
+`_wiki-schema.md` § 15 의 `claude_md_integration` 정책 적용 (default `auto-patch`).
 
 **왜 필요한가**: 미래 LLM 세션은 CLAUDE.md 만 자동 로드 → 이 안내가 없으면 INDEX.md / LOG.md 의 존재를 모르고 dev-guide 작업 중 wiki 활용 안 함.
 
@@ -86,7 +86,7 @@ CLAUDE.md grep "docs/INDEX.md"
   매칭 없음 → 보강 진행
 ```
 
-**announce 모드 (default — CLAUDE.md 무수정)**:
+**announce 모드 (CLAUDE.md 무수정 — schema 에서 명시적으로 선택 시)**:
 
 ```
 📌 권장: CLAUDE.md 에 wiki 자산 안내를 추가하세요
@@ -103,7 +103,7 @@ CLAUDE.md grep "docs/INDEX.md"
   (jira-plan / jira-complete chain. 누락 시 `/jira-ingest <KEY>` 수동 호출)
 ```
 
-**auto-patch 모드** (`claude_md_integration.mode: auto-patch`):
+**auto-patch 모드 (default)**:
 - "Planning Docs 표 끝에 3 row 를 자동 추가할까요? [y/n]" 1회 confirm
 - y → Edit 툴로 target_section 헤더 직후 표 끝 anchor 찾아 append
 - 표 헤더 매칭 실패 시 → announce 폴백

@@ -17,15 +17,26 @@ triggers:
 ## Usage
 
 ```
-/harness-workflow <ISSUE-KEY>              # 일반 모드 (부모 이슈만)
-/harness-workflow <ISSUE-KEY> --subtasks   # 부모 + 하위 작업 fan-out 모드 (ADR-070)
+/harness-workflow <KEY>                          # 1 부모 일반
+/harness-workflow <KEY> --subtasks               # 1 부모 + 하위 fan-out (Tier-2, ADR-070)
+/harness-workflow <KEY1> <KEY2> ... [--subtasks] # ⚡ 다중 부모 병렬 (Tier-1 + Tier-2)
 ```
 
-`--subtasks` 모드 진입 조건:
-- 사용자가 명시 플래그 전달
-- 부모 이슈의 `subtasks` 필드에 1개 이상 하위 키 존재 (자동 검증)
+### 모드 결정 트리 (입력 시 무조건 확인)
 
-조건 미충족 시 일반 모드로 폴백 + 안내.
+1. **입력에 부모 키가 2개 이상인가?** (공백 / 슬래시 / 쉼표로 구분된 별개 부모 — 같은 epic 의 형제 작업 포함)
+   → **YES → 즉시 `parallel-fanout.md` 로 분기**. 본 SKILL.md 의 단일-인스턴스 시퀀스는 적용 금지.
+   - `Read('~/.claude/skills/harness-workflow/parallel-fanout.md')` 먼저 호출 + §0 사전조건 10개 검증 + §3 충돌 매트릭스 + §4 옵션 A/B/C/D 사용자 승인 → §5 worktree 생성 + Tier-1 TeamCreate + Agent spawn × N
+   - 일반적인 misconception: "fan-out = `--subtasks` 만" ❌ — fan-out 은 **2-tier**. Tier-1 (다중 부모 worktree) + Tier-2 (단일 부모 하위 Agent Teams). `parallel-fanout.md` 가 SSoT.
+
+2. **입력에 부모 키가 1개 + `--subtasks` 플래그?**
+   → 본 SKILL.md 의 단일-인스턴스 시퀀스 + 자식 스킬 호출마다 `--subtasks` 자동 전파 (`_subtasks-convention.md` § 7).
+   - 진입 조건: 부모 이슈의 `subtasks` 필드에 하위 키 1개 이상 존재 (자동 검증). 미충족 시 일반 모드 폴백.
+
+3. **입력에 부모 키가 1개 + 플래그 없음?**
+   → 본 SKILL.md 의 단일-인스턴스 시퀀스, 부모만 처리.
+
+⚠️ **회귀 사례** (2026-05-22): 사용자가 `PROJ-233 / PROJ-234 --subtasks` 입력 시 "두 별개 부모는 한 워크플로로 못 묶는다" 며 순차 진행 제안 → `parallel-fanout.md` 존재 자체를 놓침. **결정 트리 1번 분기를 반드시 먼저 평가**.
 
 ## ⛔ Guard — HARNESS_MODE 확인 (최우선)
 
