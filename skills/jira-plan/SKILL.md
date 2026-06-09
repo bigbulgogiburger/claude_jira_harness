@@ -20,18 +20,7 @@ Jira 이슈와 프로젝트 코드를 분석하여, 스택 최고 개발자 페�
 
 ### 1. 스택 감지 및 페르소나 활성화
 
-작업 디렉토리에서 프로젝트 스택을 자동 감지하고, 해당 스택의 **시니어 전문가 페르소나**를 즉시 활성화합니다.
-
-| 감지 파일 | 스택 | 페르소나 |
-|-----------|------|----------|
-| `build.gradle` / `pom.xml` | Spring Boot | **Spring Boot Master** — JPA/QueryDSL, CQRS, 트랜잭션 설계, 성능 최적화에 정통한 10년차 백엔드 아키텍트. Entity 설계 시 N+1을 먼저 고려하고, 서비스 분리는 항상 Read/Write로 시작함 |
-| `pubspec.yaml` | Flutter/Dart | **Flutter Architect** — Riverpod/BLoC 상태관리, GoRouter, 플랫폼 채널, 위젯 성능 최적화에 정통한 시니어. Widget tree 최적화와 rebuild 최소화를 항상 우선시함 |
-| `package.json` + Vue | Vue.js | **Vue.js Specialist** — Composition API, Pinia, Vite, SSR/SSG에 정통한 프론트엔드 시니어. 반응형 시스템 내부 동작을 이해하고, composable 설계를 선호함 |
-| `package.json` + React | React | **React Expert** — Hooks, Server Components, Next.js, Zustand/Jotai에 정통한 프론트엔드 시니어. 렌더링 최적화와 데이터 페칭 패턴에 강함 |
-| `package.json` + Angular | Angular | **Angular Master** — RxJS, Signal, NgModule/Standalone, Change Detection에 정통한 엔터프라이즈 프론트엔드 아키텍트 |
-| `go.mod` | Go | **Go Expert** — goroutine 패턴, interface 설계, stdlib 활용, 에러 핸들링 철학에 정통한 시니어. 단순함과 명시성을 최우선으로 함 |
-| `Cargo.toml` | Rust | **Rust Master** — ownership/lifetime, async runtime, trait 설계에 정통한 시스템 프로그래머. 안전성과 성능의 균형을 잡는 데 능함 |
-| `pyproject.toml` / `requirements.txt` | Python | **Python Expert** — FastAPI/Django, type hints, async, 데이터 파이프라인에 정통한 시니어. Pythonic한 코드와 실용적 설계를 추구함 |
+작업 디렉토리에서 프로젝트 스택을 자동 감지하고, 해당 스택의 **시니어 전문가 페르소나**를 즉시 활성화합니다. 감지 매핑 + 스택별 페르소나는 `~/.claude/skills/_stack-detection.md` §1 + §2 참조.
 
 페르소나가 활성화되면, 이후 모든 분석과 가이드 작성에 해당 페르소나의 관점이 적용됩니다.
 
@@ -51,18 +40,20 @@ mcp__atlassian__searchJiraIssuesUsingJql → 관련 이슈/서브태스크 조�
 - 관련 이슈 (linked issues)
 - 첨부파일 목록 (있으면)
 
-### 3·4 수행 모드 선택 — Dynamic Workflow vs 인라인
+### 3·4 수행 모드 선택 — ultracode workflow vs 인라인
 
 아래 **§3 코드 분석 + §4 dev-guide 생성** 은 두 모드 중 하나로 수행한다. 프로젝트·이슈 규모에 따라 자동 판단:
 
 | 모드 | 진입 조건 | 방식 |
 |------|----------|------|
-| **(A) Dynamic Workflow** | Workflow 기능 사용 가능(`disableWorkflows`≠true, 지원 버전) **AND** 영향 범위가 넓음(키워드상 다수 모듈/파일·교차 도메인) | `Workflow` 툴로 *코드+위키+이슈+memory* multi-modal fan-out → structured map → dev-guide 초안 → 반박 검증 |
+| **(A) ultracode workflow** | Workflow 기능 사용 가능(`disableWorkflows`≠true, 지원 버전) **AND** 영향 범위가 넓음(키워드상 다수 모듈/파일·교차 도메인) | `Workflow` 툴로 *코드+위키+이슈+memory* multi-modal fan-out → structured map → dev-guide 초안 → 반박 검증 |
 | **(B) 인라인** (기본·하위호환) | 위 조건 미충족 / 소규모 이슈 / workflow 비활성 | 메인 세션이 §3·§4 를 직접 수행 (아래 절차) |
 
+> **트리거 워드 (2026-06 변경): `workflow` → `ultracode`.** 이 모드의 명칭이 "ultracode workflow" 다. **jira-plan 이 (A) 로 진입하는 것 자체가 `Workflow` 툴 opt-in 으로 인정**되므로(Workflow 툴 규칙 — "사용자가 invoke 한 skill/슬래시 커맨드의 지시가 Workflow 를 호출하라고 하면 그게 opt-in"), 사용자가 프롬프트에 `ultracode` 를 따로 타이핑하지 않아도 위 진입 조건만 충족하면 자동 트리거된다.
+>
 > **(B) 가 기본값**이다. Workflow 가 불확실하면 (B). (A) 는 "범위가 커서 컨텍스트 폭발이 우려될 때" 의 최적화이지 의무가 아니다.
 
-#### (A) Dynamic Workflow 모드 — Understand / Design / Verify
+#### (A) ultracode workflow 모드 — Understand / Design / Verify
 
 > ⚠️ **범용 — 특정 프로젝트 경로를 하드코딩하지 말 것.** 아래 축은 *프로젝트에 실제 존재하는 소스만* 포함한다 (조건부). 산출물은 `docs/<KEY>-dev-guide.md.draft` 로 저장 → 메인 세션이 검토 후 확정 rename. 위키 쓰기(jira-ingest)·사용자 승인은 workflow 밖(§6 / 호출자).
 
@@ -78,7 +69,7 @@ mcp__atlassian__searchJiraIssuesUsingJql → 관련 이슈/서브태스크 조�
 export const meta = {
   name: 'jira-plan-understand',
   description: 'jira-plan Understand/Design/Verify — multi-modal sweep → dev-guide 초안 → 제약·영향범위 반박 검증',
-  phases: [{ title: 'Understand' }, { title: 'Design' }, { title: 'Verify' }],
+  phases: [{ title: 'Understand' }, { title: 'Design' }, { title: 'Verify', model: 'sonnet' }],
 }
 const issueKey = (typeof args === 'string' ? args : args?.issueKey)?.trim()
 const FINDINGS = { type:'object', required:['axis','findings'], properties:{
@@ -97,19 +88,20 @@ const hasWiki = HAS_WIKI    // ← true/false 치환
 const hasMemory = HAS_MEMORY  // ← true/false 치환
 const issueBody = ISSUE_BODY  // ← §2 본문 문자열 치환
 const AXES = [
-  { axis:'code',  prompt:`${issueKey} 영향 파일·기존 패턴·충돌 지점을 스택 소스 디렉토리에서 READ ONLY 수집. kind=impacted-file|pattern, ref=파일경로:라인.` },
-  ...(hasWiki ? [{ axis:'wiki', prompt:`${issueKey} 의 docs/INDEX.md cross-ref + ADR "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 수집(READ ONLY). kind=constraint|precedent, ref=ADR-NNN|PROJ-NNN|파일경로. 중복/모순 위험을 note 에.` }] : []),
-  { axis:'issue', prompt:`다음 이슈 요구사항·AC 를 정리: ${issueBody}. kind=requirement, ref=AC 번호 또는 ${issueKey}.` },
-  ...(hasMemory ? [{ axis:'memory', prompt:`${issueKey} 영역의 알려진 함정을 프로젝트 memory 인덱스에서 수집(READ ONLY). kind=trap, ref=memory slug.` }] : []),
+  { axis:'code',  model:'sonnet', prompt:`${issueKey} 영향 파일·기존 패턴·충돌 지점을 스택 소스 디렉토리에서 READ ONLY 수집. kind=impacted-file|pattern, ref=파일경로:라인.` },
+  ...(hasWiki ? [{ axis:'wiki', model:'sonnet', prompt:`${issueKey} 의 docs/INDEX.md cross-ref + ADR "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 수집(READ ONLY). kind=constraint|precedent, ref=ADR-NNN|PROJ-NNN|파일경로. 중복/모순 위험을 note 에.` }] : []),
+  { axis:'issue', model:'haiku', prompt:`다음 이슈 요구사항·AC 를 정리: ${issueBody}. kind=requirement, ref=AC 번호 또는 ${issueKey}.` },
+  ...(hasMemory ? [{ axis:'memory', model:'haiku', prompt:`${issueKey} 영역의 알려진 함정을 프로젝트 memory 인덱스에서 수집(READ ONLY). kind=trap, ref=memory slug.` }] : []),
 ]
 const results = (await parallel(AXES.map(a => () =>
-  agent(a.prompt, { label:`understand:${a.axis}`, phase:'Understand', schema:FINDINGS, agentType:'Explore' })
+  agent(a.prompt, { label:`understand:${a.axis}`, phase:'Understand', schema:FINDINGS, agentType:'Explore', model:a.model })
     .then(r => r && ({ ...r, _axis:a.axis }))))).filter(Boolean)
 // axis 는 agent 반환값(schema의 axis)을 신뢰하지 말고 AXES 가 부여한 값으로 고정 — agent 가 라벨을 임의 제목으로 채우는 문제 방지
 const map = results.flatMap(r => (r.findings||[]).map(f => ({ ...f, axis:r._axis })))
 const digest = map.map(f => `- [${f.axis}/${f.kind}] ${f.ref} — ${f.note}`).join('\n')
 
 phase('Design')
+// model 생략 = 세션 최상위 모델 상속(합성 품질 상한을 세션 모델로 제어). 워커(understand/verify)만 경량 티어로 고정.
 const draftPath = `docs/${issueKey}-dev-guide.md.draft`
 const draft = await agent(`너는 이 스택의 시니어다. 아래 map 근거로 ${issueKey} dev-guide 초안을 §4 템플릿 구조로 작성해 ${draftPath} 에 Write 하라. wiki constraint(ADR NEVER 룰)는 "준수"로 명시.\n## map\n${digest}`, { phase:'Design' })
 
@@ -119,7 +111,7 @@ const dims = [
   { d:'scope-completeness', p:`${draftPath} 영향범위가 불완전한지 REFUTE. code sweep impacted-file 중 누락/연쇄영향. 누락=blocker+evidence:파일. 완전하면 PASS.\n${map.filter(f=>f.axis==='code').map(f=>`- ${f.ref}: ${f.note}`).join('\n')||'(없음)'}` },
 ]
 const v = (await parallel(dims.map(x => () =>
-  agent(x.p, { label:`verify:${x.d}`, phase:'Verify', schema:VERIFY, agentType:'Explore' })))).filter(Boolean)
+  agent(x.p, { label:`verify:${x.d}`, phase:'Verify', schema:VERIFY, agentType:'Explore', model:'sonnet' })))).filter(Boolean)
 const blockers = v.flatMap(r => (r.issues||[]).filter(i => i.severity==='blocker').map(i => ({ dimension:r.dimension, ...i })))
 return { issueKey, draftPath, findings: map.length, verdict: blockers.length ? 'REVISE' : 'PASS', blockers, designSummary: draft }
 ```
@@ -130,6 +122,19 @@ return { issueKey, draftPath, findings: map.length, verdict: blockers.length ? '
 1. workflow 결과의 `verdict` 확인 — `REVISE` 면 `blockers` 를 사용자에게 보고하고 보강(재실행 또는 수동 수정) 후 진행
 2. `PASS` 면 `docs/<KEY>-dev-guide.md.draft` 를 검토 → 문제 없으면 `docs/<KEY>-dev-guide.md` 로 확정(rename/저장)
 3. 이후 **§5·§6·§7 은 모드와 무관하게 동일하게 수행** (Jira 코멘트, wiki ingest forecast, 결과 출력)
+
+**모델 티어링** (performance.md 정합 — fan-out 워커는 경량 티어로 고정, 합성만 세션 최상위 모델 상속):
+
+| 단계 | agent | 작업 성격 | model |
+|------|-------|----------|-------|
+| Understand | `code` · `wiki` | 소스 영향·cascade 분석 / ADR "NEVER" 제약 탐지 (false-negative = blocker 누락) | `sonnet` |
+| Understand | `issue` · `memory` | 주입된 이슈 본문 요약 / memory 인덱스 함정 retrieval (저난도) | `haiku` |
+| Design | (합성) | dev-guide 초안 작성 — 시니어 페르소나, 추론 부담 최상 | **상속** (`model` 생략 → 세션 모델) |
+| Verify | constraint · scope | 반박(REFUTE) 검증 — 통과 오판이 곧 누락 blocker | `sonnet` |
+
+- **Design 만 `model` 미지정** → 세션 최상위(현재 Opus / Sonnet 세션이면 Sonnet)를 상속. 사용자가 세션 모델로 "합성 품질 상한"을 제어하고, 워커는 명시 티어로 고정해 Opus 토큰 낭비를 막는다. (워크플로 `agent()` 기본값이 메인 루프 모델 상속이라, 과거 전 에이전트가 Opus로 뜬 건 세션이 Opus였기 때문.)
+- `agentType:'Explore'` 와 조합 시 `model` 이 Explore 정의의 frontmatter 모델보다 **우선**하므로 티어링이 확실히 적용된다.
+- 더 보수적: `code`/`wiki`·verify 를 `haiku` 로 내림(비용↓, ADR 제약 누락 위험↑). 더 공격적: verify 를 상속(세션 Opus)으로 올림(반박 강도↑).
 
 조정 가능(PoC 기본은 보수적): verifier 차원당 1명 → 신뢰도 필요 시 차원당 N=3 다수결, `code` 축 → BE/FE 2-reader 분할.
 

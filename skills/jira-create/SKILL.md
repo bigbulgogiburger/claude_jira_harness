@@ -60,18 +60,7 @@ description: "jira-create — 자연어 한 줄 또는 문서를 읽어 Jira 이
 
 ### 4. 스택 감지
 
-`jira-start`와 동일한 표를 따른다.
-
-| 감지 파일 | 스택 | 라벨 후보 |
-|-----------|------|----------|
-| `build.gradle` / `pom.xml` | Spring Boot | `spring-boot`, `backend` |
-| `pubspec.yaml` | Flutter | `flutter`, `mobile` |
-| `package.json` + Vue | Vue.js | `vue`, `frontend` |
-| `package.json` + React | React | `react`, `frontend` |
-| `package.json` + Angular | Angular | `angular`, `frontend` |
-| `go.mod` | Go | `go`, `backend` |
-| `Cargo.toml` | Rust | `rust` |
-| `pyproject.toml` / `requirements.txt` | Python | `python` |
+감지 매핑 + 스택별 라벨 후보는 `~/.claude/skills/_stack-detection.md` §1 + §3 참조.
 
 스택 감지는 라벨 자동 부여와 issueType 추정(예: 백엔드 프로젝트면 Story 대신 Task가 표준일 수 있음)에 사용한다.
 

@@ -44,18 +44,7 @@ docs/<ISSUE-KEY>-dev-guide.md
 
 ### 2. 스택 감지 및 페르소나 활성화
 
-작업 디렉토리에서 프로젝트 스택을 자동 감지하고 페르소나를 활성화합니다.
-
-| 감지 파일 | 스택 | 페르소나 |
-|-----------|------|----------|
-| `build.gradle` / `pom.xml` | Spring Boot | **Spring Boot Master** — JPA/QueryDSL, CQRS, 트랜잭션 설계, 성능 최적화에 정통한 10년차 백엔드 아키텍트. N+1 방지, Read/Write 서비스 분리, 소프트 삭제 패턴을 자연스럽게 적용함 |
-| `pubspec.yaml` | Flutter/Dart | **Flutter Architect** — Riverpod/BLoC, GoRouter, 플랫폼 채널, 위젯 성능 최적화 전문. Widget rebuild 최소화, 상태 격리, 테스트 가능한 아키텍처를 우선시함 |
-| `package.json` + Vue | Vue.js | **Vue.js Specialist** — Composition API, Pinia, Vite, SSR/SSG 전문. 반응형 시스템 이해 기반의 composable 설계, 컴포넌트 재사용성 극대화 |
-| `package.json` + React | React | **React Expert** — Hooks, Server Components, Next.js, Zustand/Jotai 전문. 렌더링 최적화, 데이터 페칭 패턴, 관심사 분리 |
-| `package.json` + Angular | Angular | **Angular Master** — RxJS, Signal, Standalone Components, Change Detection 전문. 엔터프라이즈 수준의 모듈 설계 |
-| `go.mod` | Go | **Go Expert** — goroutine, interface 설계, stdlib 활용 전문. 단순함과 명시성 최우선 |
-| `Cargo.toml` | Rust | **Rust Master** — ownership/lifetime, async runtime, trait 설계 전문. 안전성과 성능의 균형 |
-| `pyproject.toml` / `requirements.txt` | Python | **Python Expert** — FastAPI/Django, type hints, async 전문. Pythonic 코드와 실용적 설계 |
+작업 디렉토리에서 프로젝트 스택을 자동 감지하고 페르소나를 활성화합니다 — 감지 매핑 + 스택별 페르소나는 `~/.claude/skills/_stack-detection.md` §1 + §2 참조.
 
 ### 3. 실행 모드 결정
 
@@ -172,7 +161,7 @@ FOR each row in "Agent Teams 구성":
   # (a) teammate spawn
   Agent({
     description: "<역할명> teammate",
-    subagent_type: "<§ 5 에 명시된 agent>",     // 예: app-back-cqrs-refactorer. 없으면 "general-purpose"
+    subagent_type: "<§ 5 에 명시된 agent>",     // 예: stdback-cqrs-refactorer. 없으면 "general-purpose"
     team_name: "PROJ-<KEY>",
     name: "<slug-역할명>",                        // 예: "slice-PROJ-163". 이 name 이 TaskUpdate(owner) 값
     prompt: """
@@ -321,22 +310,13 @@ CODEX_SCRIPT=$(printf '%s\n' "$HOME"/.claude/plugins/cache/openai-codex/codex/*/
 
 **Step 6-2. 실행 전 working-tree 정리 (EISDIR / ENOENT 회피)**
 
-Codex companion 은 `git status` 의 `??` (untracked) 라인을 그대로 파일로 간주해 `fs.readFile()` 를 시도합니다. 항목이 디렉토리이거나 `.gitignore` 에 디렉토리 패턴(`foo/`)만 있어 파일 (`foo`) 이 untracked 로 남으면 EISDIR / ENOENT 로 즉시 죽습니다. 모노레포 (sub-repo `.git` 없는 통합 repo) 에서 특히 잘 터집니다.
-
-**필수 사전 점검 (Codex 호출 직전 1회)**:
+Codex companion 은 `git status` 의 `??`(untracked) 라인을 파일로 간주해 read 합니다. untracked **디렉토리**, 또는 `.gitignore` 에 `foo/` 만 있어 파일 `foo` 가 untracked 로 남으면 EISDIR/ENOENT 로 죽습니다(모노레포에서 빈발). 호출 직전 점검:
 
 ```bash
-# 1) untracked 디렉토리 / 슬래시 mismatch 가 있는 ignore 패턴 확인
-git status --short | grep -E '^\?\?' | awk '{print $2}'
+git status --short | grep -E '^\?\?' | awk '{print $2}'   # untracked 항목 확인
 ```
 
-위 출력에 다음 중 하나라도 있으면 **반드시 처리 후** Codex 호출:
-
-| 패턴 | 처리 |
-|------|------|
-| `path/to/dir/` (슬래시 끝, 디렉토리) | (a) `.gitignore` 에 추가하거나 (b) `git add path/to/dir/` 로 staging — 파일 단위로 펼침 |
-| `.graphify_python` (파일인데 `.gitignore` 엔 `.graphify_python/` 만 있음) | `.gitignore` 패턴에서 슬래시 제거 → 파일/디렉토리 둘 다 매칭 |
-| 새 도메인 디렉토리 (`controller/`, `dto/` 등) | `git add` 로 staging — 파일 단위 펼침 |
+출력에 untracked **디렉토리**(`path/dir/`)나 슬래시 mismatch ignore 패턴이 있으면 → `git add <항목>` 으로 staging(파일 단위로 펼침) 하거나 `.gitignore` 패턴에서 슬래시 제거 후 Codex 호출. (메모리: `codex-working-tree-eisdir`)
 
 **Step 6-3. 실행** (설치된 경우 — 스킵 금지):
 
@@ -349,15 +329,14 @@ node "$CODEX_SCRIPT" adversarial-review --wait --scope working-tree
 
 이 호출은 **건너뛰지 않습니다**. 루프 모드, `--subtasks` 모드, 단일 이슈 — 어떤 컨텍스트에서도. 시간이 부족하다고 판단되더라도 실행합니다 (사용자의 명시적 정책).
 
-**Step 6-3-b. EISDIR / ENOENT 진단 매트릭스** (실행 실패 시):
+**Step 6-3-b. 실행 실패 시 진단**:
 
-| 증상 | 원인 | 빠른 fix |
-|------|------|---------|
-| `EISDIR: illegal operation on a directory, read` | untracked 빈/내용 디렉토리를 파일처럼 read | `.gitignore` 추가 또는 `git add <dir>` 로 펼침 |
-| `ENOENT: no such file or directory, stat 'D:\<root>\src\...'` | 모노레포 sub-repo (예: `app-back/`) 안에서 호출했는데 git 이 root 기준 경로를 반환 | 모노레포 **root 에서 호출** (sub-repo 안에서 호출 X) |
-| `EISDIR` 가 cwd=root 에서도 재현 | untracked dir 여전히 존재 | 위 Step 6-2 의 점검 다시 |
+| 증상 | fix |
+|------|------|
+| `EISDIR ... read` | untracked 디렉토리를 파일처럼 read → `git add <dir>` 또는 `.gitignore` (Step 6-2 재점검) |
+| `ENOENT ... stat '<root>\src\...'` | 모노레포 sub-repo 안에서 호출 → 모노레포 **root 에서 재호출** |
 
-재시도 후에도 동일하게 실패하면 사용자에게 알리고 진행 여부 확인.
+재시도 후에도 실패하면 사용자에게 알리고 진행 여부 확인.
 
 **Step 6-3. 미설치 시 (스킵 허용 — 단, 명시 출력)**:
 

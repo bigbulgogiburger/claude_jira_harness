@@ -91,71 +91,38 @@ mcp__atlassian__searchJiraIssuesUsingJql
 
 **핵심: 같은 값을 계산하는 모든 위치를 찾는 것.**
 
-예시 (실제 사례):
+예시:
 ```
-staffTeamTotalPrice 계산 위치:
-  1. RepairReport.updateFee()
-  2. SettlementSnapshotService.createSettlementDetails()
-  3. Settlement.recalculateFrom()
-  4. SettlementQueryRepositoryImpl (list 집계)
-  5. SettlementQueryRepositoryImpl (summary 집계)
-→ 5곳 모두 동일한 공식이어야 함!
+<계산필드> (예: 합산 금액) 계산 위치:
+  1. <Entity>.updateXxx()
+  2. <SnapshotService>.createDetails()
+  3. <AggregateRoot>.recalculateFrom()
+  4. <QueryRepositoryImpl> (list 집계)
+  5. <QueryRepositoryImpl> (summary 집계)
+→ 같은 값을 계산하는 모든 곳이 동일 공식이어야 함!
 ```
 
 이 분석 결과를 Q&A에서 공유하여 사용자가 영향 범위를 정확히 파악할 수 있게 합니다.
 
 #### 2-3. Cross-project API 경계 자동 감지 (스택 분기)
 
-이슈 작업이 외부 시스템(다른 프로젝트/마이크로서비스)에 걸치는지 자동으로 탐지합니다. 백엔드는 Feign 같은 RPC 클라이언트, 프론트엔드는 HTTP 클라이언트(axios/fetch/dio)로 외부와 대화하므로, 스택에 따라 스캔 패턴이 다릅니다.
+이슈가 외부 시스템(다른 프로젝트/마이크로서비스)에 걸치는지 탐지합니다. 스택별 클라이언트 패턴을 Grep:
 
-**Spring Boot (Java/Kotlin)**
-```bash
-Grep: "@FeignClient" → Feign Client 인터페이스 목록
-Grep: "RestTemplate|WebClient" → 다른 RPC 호출
-Grep: 이슈 키워드와 관련된 클라이언트 메서드 → 호출 Service 추적
-```
+| 스택 | Grep 패턴 |
+|------|-----------|
+| Spring Boot | `@FeignClient` / `RestTemplate\|WebClient` → 키워드 관련 클라이언트 메서드 → 호출 Service 추적 |
+| Vue/React/Angular | `axios\.(get\|post\|...)` / `fetch\(` / `/api/[^"']+`(의존 엔드포인트) / `*_API_BASE` 환경변수 |
+| Flutter | `Dio\(\)` / `dio\.` / `http\.(get\|post\|...)` / `/api/[^"']+` |
+| 기타/미감지 | `/api/`·`http(s)://` URL 패턴 + `*_BASE_URL`·`*_API_HOST` 환경변수 |
 
-**Vue / React / Angular (JS/TS)**
-```bash
-Grep: "axios\.(get|post|put|delete|patch)" 또는 "axios\(" → axios 호출 위치
-Grep: "fetch\(" → 네이티브 fetch 호출
-Grep: "/api/[^\"']+" → 백엔드 엔드포인트 경로 (어떤 API에 의존하는지)
-Grep: VITE_API_BASE_URL / NEXT_PUBLIC_API_BASE 등 환경변수 → 베이스 URL 추적
-```
-
-**Flutter (Dart)**
-```bash
-Grep: "Dio\(\)" 또는 "dio\." → Dio 클라이언트 호출
-Grep: "http\.(get|post|put|delete)" → http 패키지 호출
-Grep: "/api/[^\"']+" → API 엔드포인트
-```
-
-**스택 미감지 / 기타**
-- `/api/`, `http://`, `https://` 등 일반 URL 패턴 grep으로 외부 호출 후보 수집
-- 환경변수 베이스 URL(예: `_BASE_URL`, `_API_HOST`) grep
-
-각 스택의 결과를 통합하여 "이 프로젝트에서 다른 시스템 호출"이라는 cross-project 영향도를 산출합니다.
+발견된 외부 호출을 "이 프로젝트 → 다른 시스템" 영향도로 산출하고, 양쪽 수정이 필요하면 §5 하위 이슈 후보로 올립니다.
 
 감지 결과 예시:
 ```
-⚠️ 크로스 프로젝트 감지
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-이 기능은 다음 외부 호출을 포함합니다:
-
-1. InternalAppApplianceClient.repairRequestRegisterPost()
-   cs-back → app-ha-back (POST /repair-management/register/post)
-   → 완료등록 시 수리파트너 요금 전달
-
-2. axios.get('/api/repair-management/visit-propose')
-   cs-front → cs-back (GET)
-   → 응답 스키마 변경 시 cs-front 수정 필요
-
-3. dio.post('/api/v1/repair-status', ...)
-   app_v2 → cs-back (POST)
-   → Flutter 앱 측 모델 클래스 갱신 필요할 수 있음
-
-→ 영향받는 프로젝트: app-ha-back, cs-front, app_v2
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ 크로스 프로젝트 감지 — 이 기능은 외부 호출 포함:
+  1. <Client>.<method>()      : <projectA> → <projectB> (POST /...)  — 완료 시 데이터 전달
+  2. axios.get('/api/...')    : <frontend> → <backend>  — 응답 스키마 변경 시 FE 수정
+→ 영향받는 프로젝트: <projectB>, <frontend>
 ```
 
 #### 2-4. 과거 유사 이슈 참고
@@ -178,7 +145,7 @@ mcp__atlassian__searchJiraIssuesUsingJql
 ```
 📚 참고: 비슷한 작업 이력
 - <DONE-KEY-1>: <제목> — 하위 이슈 3개로 분할, 2주 소요
-- <DONE-KEY-2>: <제목> — cs-back만 수정, 1주 소요
+- <DONE-KEY-2>: <제목> — <프로젝트 1개>만 수정, 1주 소요
 ```
 
 ### 3. 스마트 Q&A 세션
@@ -197,9 +164,9 @@ mcp__atlassian__searchJiraIssuesUsingJql
 - "프론트엔드 작업도 있나요?"
 
 **좋은 질문:**
-- "코드를 보니 `RepairReport`에 `staffTeamTotalPrice` 필드가 있는데, 이번에 이 계산식이 `perDiem + tech + costOfParts`로 바뀌어야 하는 게 맞나요?"
-- "`InternalAppApplianceClient.getVisitPropose()`가 app-ha-back을 호출하고 있어서, app-ha-back에서도 `details`, `checks` 필드를 추가해야 합니다. 이것도 이 이슈 범위인가요, 아니면 별도 이슈로 따야 하나요?"
-- "PROJ-157 댓글에 '부품비가 staffTeamTotalPrice에 안 들어간다'는 버그가 있던데, 이번에 같이 수정하는 건가요?"
+- "코드를 보니 `<Entity>`에 `<필드>` 가 있는데, 이번에 이 계산식이 `<새 공식>` 으로 바뀌어야 하는 게 맞나요?"
+- "`<Client>.<method>()` 가 `<다른 프로젝트>` 를 호출하고 있어서, 그쪽에서도 `<필드>` 를 추가해야 합니다. 이것도 이 이슈 범위인가요, 아니면 별도 이슈로 따야 하나요?"
+- "`<관련 이슈>` 댓글에 '<버그 요지>' 가 있던데, 이번에 같이 수정하는 건가요?"
 
 #### 질문 생성 프로세스
 
@@ -222,12 +189,12 @@ mcp__atlassian__searchJiraIssuesUsingJql
 - 호출 체인 분석 결과를 보여주며 범위 확인
 - "이 필드를 바꾸면 5곳에서 계산이 바뀌는데, 전부 수정 범위인가요?"
 
-**C. 크로스 프로젝트 확인** — Feign 감지 결과 기반
-- "이 API가 Feign으로 app-ha-back을 호출하는데, 양쪽 다 수정이 필요합니다"
-- "app-ha-back 작업은 누가 하나요? 하위 이슈로 나눌까요?"
+**C. 크로스 프로젝트 확인** — 외부 호출 감지 결과 기반
+- "이 API가 `<다른 프로젝트>` 를 호출하는데, 양쪽 다 수정이 필요합니다"
+- "`<다른 프로젝트>` 작업은 누가 하나요? 하위 이슈로 나눌까요?"
 
 **D. 관련 이슈 통합** — 수집된 관련 이슈/버그 기반
-- "PROJ-157에 관련 버그가 있는데, 이번에 같이 잡을까요?"
+- "`<관련 이슈>` 에 관련 버그가 있는데, 이번에 같이 잡을까요?"
 - "이 Epic의 다른 이슈에서 이미 X를 했는데, 여기서도 해야 하나요?"
 
 **E. 인수조건 제안** — AC가 없을 때 가설로 제시
@@ -284,7 +251,7 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 #### 생성 기준
 
 다음 중 하나라도 해당하면 하위 이슈를 생성합니다:
-- 2개 이상의 프로젝트 수정 필요 (cs-back + app-ha-back, cs-back + cs-front 등)
+- 2개 이상의 프로젝트 수정 필요 (`<backend>` + `<외부 서비스>`, `<backend>` + `<frontend>` 등)
 - Feign 경계 감지에서 양쪽 수정 필요로 확인
 - 백엔드/프론트엔드 동시 작업 필요
 - 다른 담당자에게 별도 작업 요청 필요
@@ -303,10 +270,10 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 }
 ```
 
-**하위 이슈 제목 패턴:**
-- `[cs-back] 정산 이원화 — 수리파트너 요금 필드 추가`
-- `[app-ha-back] 정산 이원화 — 완료등록 API 수리파트너 요금 수신`
-- `[cs-front] 정산 이원화 — 수리파트너 요금 컬럼 표시`
+**하위 이슈 제목 패턴** (`[프로젝트] 기능 — 작업`):
+- `[<backend>] <기능> — <BE 작업>`
+- `[<외부 서비스>] <기능> — <연동 API 작업>`
+- `[<frontend>] <기능> — <FE 작업>`
 
 **하위 이슈 설명에 포함할 내용:**
 - 해당 프로젝트에서의 구체적 작업 내용
@@ -318,8 +285,8 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
 #### 이슈 링크 설정
 
 하위 이슈 간 의존성이 있으면 `mcp__atlassian__createIssueLink`로 연결:
-- cs-back이 먼저 완료되어야 cs-front에서 API 호출 가능 → "blocks" 링크
-- app-ha-back이 Feign 수신 처리 완료해야 cs-back에서 정상 동작 → "blocks" 링크
+- `<backend>` 가 먼저 완료되어야 `<frontend>` 에서 API 호출 가능 → "blocks" 링크
+- `<외부 서비스>` 가 수신 처리 완료해야 `<backend>` 에서 정상 동작 → "blocks" 링크
 
 ### 6. 결과 출력
 
@@ -343,9 +310,8 @@ Q&A에서 여러 프로젝트/시스템에 걸친 작업으로 확인되면, 프
   영향 범위: <프로젝트 목록>
 
 📂 하위 이슈: (해당 시)
-  <SUB-KEY-1>: [cs-back] <작업 내용>
-  <SUB-KEY-2>: [app-ha-back] <작업 내용>
-  <SUB-KEY-3>: [cs-front] <작업 내용>
+  <SUB-KEY-1>: [<project1>] <작업 내용>
+  <SUB-KEY-2>: [<project2>] <작업 내용>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 다음 단계: /jira-plan <ISSUE-KEY>

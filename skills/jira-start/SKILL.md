@@ -20,18 +20,7 @@ Jira 이슈를 조회하고 feature 브랜치를 생성한 뒤 상태를 In Prog
 
 ### 1. 스택 감지
 
-작업 디렉토리에서 프로젝트 스택을 자동 감지합니다.
-
-| 감지 파일 | 스택 | 비고 |
-|-----------|------|------|
-| `pubspec.yaml` | Flutter/Dart | Riverpod, GoRouter 등 |
-| `build.gradle` 또는 `pom.xml` | Spring Boot (Java/Kotlin) | Gradle/Maven |
-| `package.json` + Vue 의존성 | Vue.js (JavaScript/TypeScript) | vue, @vue/cli 등 |
-| `package.json` + React 의존성 | React (JavaScript/TypeScript) | react, next 등 |
-| `package.json` + Angular 의존성 | Angular (TypeScript) | @angular/core 등 |
-| `go.mod` | Go | — |
-| `Cargo.toml` | Rust | — |
-| `pyproject.toml` 또는 `requirements.txt` | Python | Django, FastAPI 등 |
+작업 디렉토리에서 프로젝트 스택을 자동 감지합니다 — 감지 매핑은 `~/.claude/skills/_stack-detection.md` §1 참조.
 
 감지된 스택 정보를 이후 단계의 컨텍스트로 활용합니다.
 
