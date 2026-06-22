@@ -40,7 +40,7 @@ description: "jira-ingest — Karpathy LLM Wiki 패턴으로 docs/ 디렉토리�
 
 ### 1-1. ISSUE_PREFIX 추론
 
-프로젝트 Jira 키 prefix 자동 감지 (예: `STD`, `PROJ`, `SCRUM`):
+프로젝트 Jira 키 prefix 자동 감지 (예: `STD`, `SURINP`, `SCRUM`):
 
 1. `CLAUDE.md` / `README.md` 에서 `\b[A-Z]+-\d+\b` 패턴 가장 빈도 높은 prefix
 2. 추론 실패 시 `mcp__atlassian__getVisibleJiraProjects` → 사용자에게 어느 프로젝트인지 확인
@@ -146,14 +146,14 @@ read 안 함 — 카테고리 분류만
 - 시간순 INGEST 라인 append
 
 **Pass 6 (옵션): Type 휴리스틱 confirm**
-multi-issue 파일명 (`PROJ-10-PROJ-81-dev-guide.md`) 처리. `_wiki-schema.md` § 5 휴리스틱 적용 후 ⚠️ 표시된 항목을 사용자에게 일괄 confirm:
+multi-issue 파일명 (`STD-10-STD-81-dev-guide.md`) 처리. `_wiki-schema.md` § 5 휴리스틱 적용 후 ⚠️ 표시된 항목을 사용자에게 일괄 confirm:
 
 ```
 ⚠️ 다음 dev-guide 의 type 판정이 모호합니다 — 검토해주세요:
 
-  PROJ-10-PROJ-81-dev-guide.md   → composite 추정 (PROJ-10/PROJ-81 둘 다 단독 guide 존재)
-  PROJ-194-68-dev-guide.md      → slice 추정 (부모 PROJ-194 단독 존재, sub PROJ-68 단독 없음)
-  PROJ-24-PROJ-107-dev-guide.md  → composite 추정
+  STD-10-STD-81-dev-guide.md   → composite 추정 (STD-10/STD-81 둘 다 단독 guide 존재)
+  STD-194-68-dev-guide.md      → slice 추정 (부모 STD-194 단독 존재, sub STD-68 단독 없음)
+  STD-24-STD-107-dev-guide.md  → composite 추정
 
 수정할 항목이 있으면 알려주세요. 없으면 'OK' 로 진행.
 ```

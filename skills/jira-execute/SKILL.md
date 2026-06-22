@@ -15,7 +15,7 @@ MD에 병렬 작업 가이드가 있으면 Agent Teams를 생성하여 병렬 �
 /jira-execute <ISSUE-KEY>
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-156)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-156)
 - `docs/<ISSUE-KEY>-dev-guide.md` 파일이 존재해야 함 (`/jira-plan`으로 생성)
 
 ## Procedure
@@ -117,13 +117,13 @@ ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,Se
 
 ```
 TeamCreate({
-  team_name: "PROJ-<KEY>",          // 예: "PROJ-49"
+  team_name: "STD-<KEY>",          // 예: "STD-49"
   agent_type: "lead",
   description: "<이슈 제목> — N slice 병렬 구현 (jira-execute)"
 })
 ```
 
-생성 시 `~/.claude/teams/PROJ-<KEY>/config.json` + `~/.claude/tasks/PROJ-<KEY>/` 가 만들어집니다.
+생성 시 `~/.claude/teams/STD-<KEY>/config.json` + `~/.claude/tasks/STD-<KEY>/` 가 만들어집니다.
 
 **4A-2. Task list 작성**
 
@@ -139,7 +139,7 @@ FOR each row in "Agent Teams 구성":
       - <파일2>
 
       ## dev-guide 참조
-      `docs/PROJ-<KEY>-dev-guide.md` § 3 Phase <N> + § 5 작업 의존성
+      `docs/STD-<KEY>-dev-guide.md` § 3 Phase <N> + § 5 작업 의존성
 
       ## 완료 기준
       - 단위 테스트 GREEN
@@ -162,10 +162,10 @@ FOR each row in "Agent Teams 구성":
   Agent({
     description: "<역할명> teammate",
     subagent_type: "<§ 5 에 명시된 agent>",     // 예: stdback-cqrs-refactorer. 없으면 "general-purpose"
-    team_name: "PROJ-<KEY>",
-    name: "<slug-역할명>",                        // 예: "slice-PROJ-163". 이 name 이 TaskUpdate(owner) 값
+    team_name: "STD-<KEY>",
+    name: "<slug-역할명>",                        // 예: "slice-STD-163". 이 name 이 TaskUpdate(owner) 값
     prompt: """
-      당신은 팀 `PROJ-<KEY>` 의 `<slug-역할명>` 입니다.
+      당신은 팀 `STD-<KEY>` 의 `<slug-역할명>` 입니다.
 
       ## 역할
       <스택 페르소나> — <역할 한줄 요약>
@@ -181,8 +181,8 @@ FOR each row in "Agent Teams 구성":
 
       ## 프로젝트 컨텍스트
       - CLAUDE.md 자동 로드됨 (working dir 기준)
-      - dev-guide: `docs/PROJ-<KEY>-dev-guide.md`
-      - slice dev-guide (있으면): `docs/PROJ-<KEY>-<SUB>-dev-guide.md`
+      - dev-guide: `docs/STD-<KEY>-dev-guide.md`
+      - slice dev-guide (있으면): `docs/STD-<KEY>-<SUB>-dev-guide.md`
     """,
     mode: "default"   // dev-guide § 5 에 "plan approval 필수" 명시 시 "plan"
   })
@@ -454,9 +454,9 @@ git diff --stat
 
 1. **Phase 0 (scaffold)** — 부모 dev-guide § 3 Phase 0 (DTO/interface/migration) 를 lead 가 직접 수행. teammate spawn 전에 끝내야 slice 들이 공통 contract 위에서 동작.
 2. **Phase 1 (slice fan-out)** — § 4A 절차 그대로:
-   - `TeamCreate({ team_name: "PROJ-<PARENT>", agent_type: "lead" })`
-   - 각 slice (`PROJ-<SUB>`) 마다 `TaskCreate` + `Agent({ team_name, name: "slice-PROJ-<SUB>", ... })`
-   - 각 teammate prompt 에 slice dev-guide 경로 명시: `docs/PROJ-<PARENT>-PROJ-<SUB>-dev-guide.md`
+   - `TeamCreate({ team_name: "STD-<PARENT>", agent_type: "lead" })`
+   - 각 slice (`STD-<SUB>`) 마다 `TaskCreate` + `Agent({ team_name, name: "slice-STD-<SUB>", ... })`
+   - 각 teammate prompt 에 slice dev-guide 경로 명시: `docs/STD-<PARENT>-STD-<SUB>-dev-guide.md`
 3. **slice 별 댓글** — teammate 가 자기 task 를 `completed` 로 마킹할 때, lead 가 하위 이슈에 1~3 줄 댓글 추가 (Jira tool 호출은 lead 가):
    ```
    🔨 구현 완료. 단위 테스트 N PASS.

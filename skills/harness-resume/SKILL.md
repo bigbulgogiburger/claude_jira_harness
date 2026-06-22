@@ -34,27 +34,27 @@ triggers:
 workflow-state.json에서 읽을 항목:
 ```json
 {
-  "issue_key": "PROJ-200",
+  "issue_key": "SURINP-200",
   "stage": "implementing-phase-2",
   "current_phase": 2,
   "total_phases": 3,
   "iteration": 1,
   "aggregate_verdict": "PASS",
-  "dev_guide_path": "docs/PROJ-200-dev-guide.md",
-  "sprint_contract_path": ".claude/runtime/sprint-contract/PROJ-200.md"
+  "dev_guide_path": "docs/SURINP-200-dev-guide.md",
+  "sprint_contract_path": ".claude/runtime/sprint-contract/SURINP-200.md"
 }
 ```
 
 사용자에게 요약:
 ```
 ══════════════════════════════════
-  Harness Resume — PROJ-200
+  Harness Resume — SURINP-200
   
   현재 단계: Phase 2 구현 중
   전체 Phase: 3
   마지막 리뷰: Phase 1 PASS ✅
   
-  → /jira-execute PROJ-200로 Phase 2 계속
+  → /jira-execute SURINP-200로 Phase 2 계속
   → /harness-review로 리뷰 진행
 ══════════════════════════════════
 ```

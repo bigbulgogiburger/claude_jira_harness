@@ -36,11 +36,12 @@ triggers:
 3. **입력에 부모 키가 1개 + 플래그 없음?**
    → 본 SKILL.md 의 단일-인스턴스 시퀀스, 부모만 처리.
 
-⚠️ **회귀 사례** (2026-05-22): 사용자가 `PROJ-233 / PROJ-234 --subtasks` 입력 시 "두 별개 부모는 한 워크플로로 못 묶는다" 며 순차 진행 제안 → `parallel-fanout.md` 존재 자체를 놓침. **결정 트리 1번 분기를 반드시 먼저 평가**.
+⚠️ **회귀 사례** (2026-05-22): 사용자가 `STD-233 / STD-234 --subtasks` 입력 시 "두 별개 부모는 한 워크플로로 못 묶는다" 며 순차 진행 제안 → `parallel-fanout.md` 존재 자체를 놓침. **결정 트리 1번 분기를 반드시 먼저 평가**.
 
 ## ⛔ Guard — HARNESS_MODE 확인 (최우선)
 
-> 이 스킬의 모든 단계보다 **먼저** 실행. SSoT: `~/.claude/skills/_harness-guard.md` — `HARNESS_MODE` 가 미설정/빈값/`off` 면 즉시 중단(안내 출력 후 이후 단계 실행 금지), `suggest`/`auto` 면 정상 진행.
+> `HARNESS_MODE` 환경변수를 직접 확인한다 — `suggest`/`auto` 면 정상 진행, 미설정/빈값/`off` 면 즉시 중단(안내 출력 후 이후 단계 실행 금지).
+> 정책 SSoT: `~/.claude/skills/_harness-guard.md` (**`Skill()` 호출 금지** — `Read` 로 참조하거나 환경변수만 직접 확인할 것).
 
 ---
 
@@ -50,7 +51,7 @@ triggers:
 
 ```json
 {
-  "issue_key": "PROJ-XXX",
+  "issue_key": "SURINP-XXX",
   "stage": "start",
   "current_phase": 0,
   "total_phases": 0,
@@ -180,7 +181,7 @@ OUTER LOOP (Phase 단위):
 
 ### Phase 7: 완료
 
-> ⛔ **Phase 7 은 반드시 `Skill('jira-complete', ...)` 로 진입할 것.** harness-workflow 가 직접 `mcp__atlassian__transitionJiraIssue` + `git push` + comment 만 호출하고 jira-complete skill 자체를 우회하면 §4.4 (ingest closure) + §4.6 (organize CLAUDE.md) + §4.7 (wiki-lint summary) chain 이 통째로 발화 안 한다 (2026-05-14 PROJ-208 사고). transition/push 를 본 skill 안에서 미리 한 경우라도 §4.4/§4.6/§4.7 발화를 위해 jira-complete skill 을 후속 호출해야 한다.
+> ⛔ **Phase 7 은 반드시 `Skill('jira-complete', ...)` 로 진입할 것.** harness-workflow 가 직접 `mcp__atlassian__transitionJiraIssue` + `git push` + comment 만 호출하고 jira-complete skill 자체를 우회하면 §4.4 (ingest closure) + §4.6 (organize CLAUDE.md) + §4.7 (wiki-lint summary) chain 이 통째로 발화 안 한다 (2026-05-14 STD-208 사고). transition/push 를 본 skill 안에서 미리 한 경우라도 §4.4/§4.6/§4.7 발화를 위해 jira-complete skill 을 후속 호출해야 한다.
 >
 > 또한 Phase 3 도 동일 — 반드시 `Skill('jira-plan', ...)` 로 진입해야 §6 (ingest forecast) chain 이 발화. harness-workflow 가 직접 dev-guide 만 작성하고 jira-plan skill 우회하면 forecast 단계 누락 → closure 단계에서 row 가 갑자기 튀어나오는 비대칭.
 

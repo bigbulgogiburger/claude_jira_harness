@@ -10,7 +10,7 @@
 
 ## ★ 범용 적용 규약 (먼저 읽을 것)
 
-본 문서의 절차는 **임의의 부모 이슈 묶음 (N개)** 에 일반적으로 적용된다. 본문에 등장하는 구체 식별자는 **최초 적용 사례 (2026-05-18, PROJ-214~218) 의 worked example** 이며, 다른 이슈 묶음에 적용할 때는 아래 규약으로 치환한다.
+본 문서의 절차는 **임의의 부모 이슈 묶음 (N개)** 에 일반적으로 적용된다. 본문에 등장하는 구체 식별자는 **최초 적용 사례 (2026-05-18, STD-214~218) 의 worked example** 이며, 다른 이슈 묶음에 적용할 때는 아래 규약으로 치환한다.
 
 | 본문의 예시 토큰 | 치환 placeholder | 의미 |
 |------------------|------------------|------|
@@ -18,10 +18,10 @@
 | `215` (settlement foundation) | `<KEY_FOUNDATION>` | 다른 이슈가 import/호출하는 선행 머지 대상 (REF 의존의 root) |
 | `SettlementCalculator` | `<FoundationClass>` | 공유 REF 의 핵심 클래스 |
 | `V14 ~ V18` | `<Vn> ~ <Vn+k>` | 사전 할당할 Flyway 번호 (§7 에서 확정) |
-| `app-parallel` | `<team-name>` | Tier-1 orchestrator 팀 이름 |
-| (단수 키 표기) | `<KEY>` (설명) · `<key>` (루프변수) | **풀 이슈 키 1개** (예: `PROJ-214`, `PROJ-156`). prefix 가 키에 이미 포함되므로 `PROJ-<KEY>` 처럼 덧붙이지 말 것 |
+| `stdcs-w6-parallel` | `<team-name>` | Tier-1 orchestrator 팀 이름 |
+| (단수 키 표기) | `<KEY>` (설명) · `<key>` (루프변수) | **풀 이슈 키 1개** (예: `STD-214`, `SURINP-156`). prefix 가 키에 이미 포함되므로 `STD-<KEY>` 처럼 덧붙이지 말 것 |
 
-- **§2 (인벤토리) · §3 (충돌 매트릭스) · §7 (Flyway 표) · §11 (머지 순서)** 의 PROJ-214~218 데이터는 **그대로 복붙하지 말 것** — 자기 이슈 묶음으로 채운 새 표를 §0 단계에서 작성한다. 본문 표는 "이렇게 생긴 표를 만들라" 는 형식 예시다.
+- **§2 (인벤토리) · §3 (충돌 매트릭스) · §7 (Flyway 표) · §11 (머지 순서)** 의 STD-214~218 데이터는 **그대로 복붙하지 말 것** — 자기 이슈 묶음으로 채운 새 표를 §0 단계에서 작성한다. 본문 표는 "이렇게 생긴 표를 만들라" 는 형식 예시다.
 - **§5 · §16 의 실행 코드** 는 generic 변수(`$KEYS`)로 작성돼 있으니 배열만 자기 키로 채우면 그대로 실행 가능하다.
 
 ---
@@ -80,23 +80,23 @@ Tier-2 (Inner, 각 worktree 안)  ── ADR-070 표준
 
 ---
 
-## 2. 부모 이슈 인벤토리 — 형식 예시 (worked example: 2026-05-18, PROJ-214~218)
+## 2. 부모 이슈 인벤토리 — 형식 예시 (worked example: 2026-05-18, STD-214~218)
 
-> ⚠️ 아래 표는 **형식 예시**다. 실제 작업 시 §0 단계에서 자기 이슈 묶음(`$KEYS`)으로 이 표를 새로 채운다. PROJ-214~218 행을 그대로 복붙하지 말 것.
+> ⚠️ 아래 표는 **형식 예시**다. 실제 작업 시 §0 단계에서 자기 이슈 묶음(`$KEYS`)으로 이 표를 새로 채운다. STD-214~218 행을 그대로 복붙하지 말 것.
 
 | Key | Sprint | Parent Epic | Subtasks | 코드 영역 (PRIMARY) | FE? |
 |-----|--------|-------------|----------|----------------------|-----|
-| **PROJ-214** | W5 | PROJ-202 | PROJ-270/271/272/273 (BE×3 + QA×1) | `classification/service/`, `approval/callback/`, `security/anonymize/`, `e2e/tests/v12-*` | – |
-| **PROJ-215** | W6 | PROJ-203 | PROJ-274/275/276 (BE×2 + QA×1) | `settlement/calc/`, `settlement/snapshot/` | – |
-| **PROJ-216** | W6 | PROJ-203 | PROJ-277/278/279/280 (BE×2 + FE×1 + QA×1) | `settlement/kpi/`, `views/system/Kpi*`, `views/system/ProductGradeFeeView` | ✅ |
-| **PROJ-217** | W6 | PROJ-203 | PROJ-281/282/283/284 (BE×2 + FE×1 + QA×1) | `settlement/adjustment/`, `settlement/policy/`, `views/settlement/Settlement*`, `views/settlement/ClosePolicy` | ✅ |
-| **PROJ-218** | W6 | PROJ-203 | PROJ-285 (BE×1) | `promotion/service/`, `promotion/calc/`, `promotion/controller/`, seed `promotion_target` | – |
+| **STD-214** | W5 | STD-202 | STD-270/271/272/273 (BE×3 + QA×1) | `classification/service/`, `approval/callback/`, `security/anonymize/`, `e2e/tests/v12-*` | – |
+| **STD-215** | W6 | STD-203 | STD-274/275/276 (BE×2 + QA×1) | `settlement/calc/`, `settlement/snapshot/` | – |
+| **STD-216** | W6 | STD-203 | STD-277/278/279/280 (BE×2 + FE×1 + QA×1) | `settlement/kpi/`, `views/system/Kpi*`, `views/system/ProductGradeFeeView` | ✅ |
+| **STD-217** | W6 | STD-203 | STD-281/282/283/284 (BE×2 + FE×1 + QA×1) | `settlement/adjustment/`, `settlement/policy/`, `views/settlement/Settlement*`, `views/settlement/ClosePolicy` | ✅ |
+| **STD-218** | W6 | STD-203 | STD-285 (BE×1) | `promotion/service/`, `promotion/calc/`, `promotion/controller/`, seed `promotion_target` | – |
 
-**Sprint 정책 경고**: 오늘 2026-05-18 기준, W5 시작은 2026-05-25 (7일 뒤), W6 = 2026-06-01 (14일 뒤). 5 이슈 중 4 개가 W6. 부모 에픽 PROJ-202/PROJ-203 모두 "해야 할 일" 상태 — W5 closure 전 W6 작업 진입은 sprint 컨벤션 위반. 위반을 감수하고 진행할지 사용자 명시 승인 필요.
+**Sprint 정책 경고**: 오늘 2026-05-18 기준, W5 시작은 2026-05-25 (7일 뒤), W6 = 2026-06-01 (14일 뒤). 5 이슈 중 4 개가 W6. 부모 에픽 STD-202/STD-203 모두 "해야 할 일" 상태 — W5 closure 전 W6 작업 진입은 sprint 컨벤션 위반. 위반을 감수하고 진행할지 사용자 명시 승인 필요.
 
 ---
 
-## 3. 코드 영역 충돌 매트릭스 (N × N) — 형식 예시 (PROJ-214~218)
+## 3. 코드 영역 충돌 매트릭스 (N × N) — 형식 예시 (STD-214~218)
 
 PRIMARY 패키지 + 참조 dependency (= "import 또는 호출 관계") 기준. 아래 5×5 는 worked example — 자기 묶음 크기(N×N)로 재작성한다.
 
@@ -117,11 +117,11 @@ PRIMARY 패키지 + 참조 dependency (= "import 또는 호출 관계") 기준. 
 ### 결정: 머지 순서
 
 ```
-1. PROJ-214 (격리)
-2. PROJ-215 (foundation — settlement sealed)   ← 가장 먼저 끝나야 함
-3. PROJ-218 (promotion 독립, WEAK REF 만)
-4. PROJ-217 (215 REF 의존)
-5. PROJ-216 (215 REF 의존)
+1. STD-214 (격리)
+2. STD-215 (foundation — settlement sealed)   ← 가장 먼저 끝나야 함
+3. STD-218 (promotion 독립, WEAK REF 만)
+4. STD-217 (215 REF 의존)
+5. STD-216 (215 REF 의존)
 ```
 
 **병렬 시작은 5 모두 동시 OK**, 단 PR 머지는 위 순서. 215 가 늦으면 217/216 의 머지가 대기.
@@ -145,7 +145,7 @@ PRIMARY 패키지 + 참조 dependency (= "import 또는 호출 관계") 기준. 
 ### 5-1. 사전 준비 (orchestrator 책임, 1 회)
 
 ```powershell
-# 0) 자기 부모 이슈 키 배열로 치환 (예: PROJ-214,PROJ-215,…)
+# 0) 자기 부모 이슈 키 배열로 치환 (예: STD-214,STD-215,…)
 $KEYS = @("<KEY1>","<KEY2>","<KEY3>","<KEY4>","<KEY5>")
 $ROOT = (git rev-parse --show-toplevel)
 $BASE = "$ROOT\.claude\worktrees"
@@ -181,16 +181,16 @@ git -C $ROOT worktree list
 ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
 
 TeamCreate({
-  team_name: "app-parallel",
+  team_name: "stdcs-w6-parallel",
   agent_type: "orchestrator",
-  description: "PROJ-214~218 다중 부모 병렬 워크플로 — wave 2-2-1 또는 full 5 동시"
+  description: "STD-214~218 다중 부모 병렬 워크플로 — wave 2-2-1 또는 full 5 동시"
 })
 ```
 
 ### 5-3. Tier-1 Task 작성 + Agent spawn
 
 ```
-FOR each key in $KEYS:   # key = 풀 이슈 키 (예: PROJ-214)
+FOR each key in $KEYS:   # key = 풀 이슈 키 (예: STD-214)
   TaskCreate({
     subject: "workflow-<key>",
     description: """
@@ -215,7 +215,7 @@ FOR each key in $KEYS:   # key = 풀 이슈 키 (예: PROJ-214)
   })
 
 # 머지 순서 DAG — §3 충돌 매트릭스에서 도출한 REF 의존을 <KEY_FOUNDATION> 에 blockedBy 로 건다
-#   (worked example PROJ-214~218: 217/216/218 이 215=settlement foundation 에 의존)
+#   (worked example STD-214~218: 217/216/218 이 215=settlement foundation 에 의존)
 FOR each dep in <REF 의존 이슈들>:
   TaskUpdate({ taskId: "<task-id-of-dep>", addBlockedBy: ["<task-id-of-KEY_FOUNDATION>"] })
 # (REF 의존 없음 = 옵션 B/C 동시 시작 — 위 블록 생략)
@@ -224,15 +224,15 @@ FOR each dep in <REF 의존 이슈들>:
 **Agent spawn** — 각 worktree 마다 1 명:
 
 ```
-FOR each key in $KEYS:   # key = 풀 이슈 키 (예: PROJ-214)
+FOR each key in $KEYS:   # key = 풀 이슈 키 (예: STD-214)
   Agent({
     description: "<key> 워크플로 실행",
     subagent_type: "general-purpose",
-    team_name: "app-parallel",
+    team_name: "stdcs-w6-parallel",
     name: "workflow-<key>",
     isolation: "worktree",                         # ★ 핵심 — claude 가 자동으로 worktree 컨텍스트 잡음
     prompt: """
-      당신은 팀 app-parallel 의 workflow-<key> 입니다.
+      당신은 팀 stdcs-w6-parallel 의 workflow-<key> 입니다.
 
       ## 시작 절차
       1. working dir 확인 (<repo-root>\.claude\worktrees\<key> 이어야 함)
@@ -330,7 +330,7 @@ on message "ingest-request <KEY>":
 
 **완화**:
 - Tier-1 orchestrator 가 `codex-slot-request` 와 동일 패턴으로 `review-slot-request` 도입 — 동시 review 인스턴스 2 로 제한
-- 또는 review 만 wave 직렬화: PROJ-214/215 의 review 가 끝난 뒤 216/217/218 review 시작
+- 또는 review 만 wave 직렬화: STD-214/215 의 review 가 끝난 뒤 216/217/218 review 시작
 
 ### 6-C. CLAUDE.md / CHANGELOG.md (organize-claude-md auto-chain)
 
@@ -344,22 +344,22 @@ on message "ingest-request <KEY>":
 
 ---
 
-## 7. Flyway V 번호 사전 할당 (반드시 §0 단계에서 확정) — 형식 예시 (PROJ-214~218)
+## 7. Flyway V 번호 사전 할당 (반드시 §0 단계에서 확정) — 형식 예시 (STD-214~218)
 
 > DB 마이그레이션을 쓰는 스택일 때만 해당. 먼저 main 의 마지막 V 번호를 확인(`ls <migration-dir> | sort -V | tail -1`)하고, 그 다음 번호부터 이슈별로 사전 할당한다. 아래는 마지막 = `V13` 가정의 worked example:
 
 | Issue | 신규 V 번호 할당 | 신규 V 파일명 후보 |
 |-------|------------------|---------------------|
-| **PROJ-214** | V14 / V14.1 (시드) | `V14__code_master_tat_pass.sql` / `V14.1__seed_code_master_v12.sql` |
-| **PROJ-215** | V15 | `V15__settlement_calc_d1d2d3.sql` (필요 시 material_usage_snapshot 컬럼 추가) |
-| **PROJ-216** | V16 / V16.1 (kpi_grade_score_band 90행 시드) | `V16__kpi_summary_7p1.sql` / `V16.1__seed_kpi_grade_score_band.sql` |
-| **PROJ-217** | V17 | `V17__settlement_adjustment_close_policy.sql` |
-| **PROJ-218** | V18 / V18.1 | `V18__promotion_target.sql` / `V18.1__seed_promotion_target.sql` |
+| **STD-214** | V14 / V14.1 (시드) | `V14__code_master_tat_pass.sql` / `V14.1__seed_code_master_v12.sql` |
+| **STD-215** | V15 | `V15__settlement_calc_d1d2d3.sql` (필요 시 material_usage_snapshot 컬럼 추가) |
+| **STD-216** | V16 / V16.1 (kpi_grade_score_band 90행 시드) | `V16__kpi_summary_7p1.sql` / `V16.1__seed_kpi_grade_score_band.sql` |
+| **STD-217** | V17 | `V17__settlement_adjustment_close_policy.sql` |
+| **STD-218** | V18 / V18.1 | `V18__promotion_target.sql` / `V18.1__seed_promotion_target.sql` |
 
 **규칙**:
-- 각 worktree-agent 의 prompt 에 자기 V 번호 명시 (예: PROJ-215 agent prompt 에 "Flyway 신규 마이그레이션 사용 시 V15 / V15.x 만 사용")
+- 각 worktree-agent 의 prompt 에 자기 V 번호 명시 (예: STD-215 agent prompt 에 "Flyway 신규 마이그레이션 사용 시 V15 / V15.x 만 사용")
 - Flyway migrate **실행은 jira-test 단계에서만**, 그것도 **머지 후 메인에서 lead 가 일괄**. worktree 안에서는 H2 (test profile) 또는 standalone schema 로 단위 테스트만.
-- 머지 순서에 따라 V 번호가 비어버리면 (예: PROJ-215 가 V15 만 사용, PROJ-216 이 V16 미사용) → **공백 V 번호 OK** (Flyway 는 누락 V 허용)
+- 머지 순서에 따라 V 번호가 비어버리면 (예: STD-215 가 V15 만 사용, STD-216 이 V16 미사용) → **공백 V 번호 OK** (Flyway 는 누락 V 허용)
 
 **충돌 시나리오**:
 - 두 worktree 가 같은 V14 를 만들면 머지 시 conflict → § 5-3 prompt 의 할당표 위반 → 사용자 알림 + 재할당
@@ -371,10 +371,10 @@ on message "ingest-request <KEY>":
 `/harness-workflow <KEY> --subtasks` 가 Phase 5 (jira-execute) 진입 시 자동으로 ADR-070 Agent Teams 모드 진입. SKILL.md 본문 + `_subtasks-convention.md` § 3 jira-execute 행 그대로 따른다.
 
 **Tier-1 ↔ Tier-2 이름 충돌 회피**:
-- Tier-1 team name: `app-parallel`
+- Tier-1 team name: `stdcs-w6-parallel`
 - Tier-1 agent name: `workflow-<KEY>`
 - Tier-2 team name (각 인스턴스가 자동 생성): `<KEY>`
-- Tier-2 agent name: `slice-PROJ-<SUB-KEY>`
+- Tier-2 agent name: `slice-STD-<SUB-KEY>`
 
 → 4 namespace 모두 다르므로 안전.
 
@@ -390,8 +390,8 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 
 | 옵션 | 설명 | 장단 |
 |------|------|------|
-| **9-A. orchestrator 가 사용자 1:1 응대 (직렬)** | 5 workflow-agent 가 sprint contract 를 메시지로 orchestrator 에 보내고 idle. orchestrator 가 순서대로 "PROJ-214 계획 — 승인?" 1개씩 사용자에게 제시 → 사용자 OK → orchestrator 가 해당 agent 깨움 | 안전, 약간 느림 |
-| **9-B. 일괄 승인** | orchestrator 가 5 sprint contract 를 한 화면에 묶어 제시 → 사용자가 "전부 OK" 또는 "PROJ-216 만 수정" | 빠름, 한 묶음 거부 시 처리 복잡 |
+| **9-A. orchestrator 가 사용자 1:1 응대 (직렬)** | 5 workflow-agent 가 sprint contract 를 메시지로 orchestrator 에 보내고 idle. orchestrator 가 순서대로 "STD-214 계획 — 승인?" 1개씩 사용자에게 제시 → 사용자 OK → orchestrator 가 해당 agent 깨움 | 안전, 약간 느림 |
+| **9-B. 일괄 승인** | orchestrator 가 5 sprint contract 를 한 화면에 묶어 제시 → 사용자가 "전부 OK" 또는 "STD-216 만 수정" | 빠름, 한 묶음 거부 시 처리 복잡 |
 
 권장: **9-A** (사고 방지).
 
@@ -416,7 +416,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 
 각 worktree-agent 의 `jira-complete` 가 `git push origin feat/<KEY>` 까지만 수행. **PR 생성과 머지는 orchestrator** (`merge-ready` 메시지 수신 시).
 
-### 11-1. 머지 순서 (§3 결정 사용) — 형식 예시 (PROJ-214~218)
+### 11-1. 머지 순서 (§3 결정 사용) — 형식 예시 (STD-214~218)
 
 > **일반 규칙**: ① 격리 이슈(충돌 0) 먼저 → ② `<KEY_FOUNDATION>` (REF root) → ③ WEAK REF → ④⑤ REF 의존 이슈(rebase 후 통합 빌드 검증). 아래는 worked example:
 
@@ -495,7 +495,7 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 ### 14-2. Tier-1 spawn
 
 - [ ] ToolSearch 로 TeamCreate/Task*/SendMessage/Agent schema 로드
-- [ ] TeamCreate "app-parallel"
+- [ ] TeamCreate "stdcs-w6-parallel"
 - [ ] TaskCreate 5 개 + DAG 의존성 (옵션 A: 217/216/218 blockedBy 215)
 - [ ] Agent spawn 5 개 (working dir 명시 + 프롬프트 § 5-3)
 - [ ] TaskUpdate(owner) 5 개
@@ -514,8 +514,8 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 - [ ] Flyway 통합 적용 (V14~V18)
 - [ ] organize-claude-md 1회 통합 실행 (§ 6-C)
 - [ ] wiki-lint 1회 (corpus-scoped)
-- [ ] `~/.claude/teams/app-parallel/` 삭제 (TeamDelete)
-- [ ] `~/.claude/teams/PROJ-214 ~ 218/` 5개 삭제 (각 Tier-2 lead 가 SKILL.md 정리 단계에서 자동)
+- [ ] `~/.claude/teams/stdcs-w6-parallel/` 삭제 (TeamDelete)
+- [ ] `~/.claude/teams/STD-214 ~ 218/` 5개 삭제 (각 Tier-2 lead 가 SKILL.md 정리 단계에서 자동)
 - [ ] worktree 5 개 삭제: `git worktree remove .claude/worktrees/<KEY>` × 5
 - [ ] CLAUDE.md `Last Updated:` 갱신 (5 이슈 closure 요약)
 - [ ] CHANGELOG.md append (5 이슈 묶음)
@@ -571,11 +571,11 @@ foreach ($k in $KEYS) {
 
 ```
 ToolSearch({ query: "select:TeamCreate,TeamDelete,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
-TeamCreate({ team_name: "app-parallel", agent_type: "orchestrator", description: "..." })
-TaskCreate({ subject: "workflow-PROJ-214", description: "...", activeForm: "..." })
-Agent({ team_name: "app-parallel", name: "workflow-PROJ-214", subagent_type: "general-purpose", prompt: "...", description: "..." })
-TaskUpdate({ taskId: "1", owner: "workflow-PROJ-214" })
-SendMessage({ to: "workflow-PROJ-214", message: "merge-ack <sha>", summary: "merge ack" })
+TeamCreate({ team_name: "stdcs-w6-parallel", agent_type: "orchestrator", description: "..." })
+TaskCreate({ subject: "workflow-STD-214", description: "...", activeForm: "..." })
+Agent({ team_name: "stdcs-w6-parallel", name: "workflow-STD-214", subagent_type: "general-purpose", prompt: "...", description: "..." })
+TaskUpdate({ taskId: "1", owner: "workflow-STD-214" })
+SendMessage({ to: "workflow-STD-214", message: "merge-ack <sha>", summary: "merge ack" })
 TeamDelete({})  # 작업 끝, 모두 idle 후
 ```
 
@@ -601,7 +601,7 @@ orchestrator → agent:
 
 ### D. 인스턴스 1개 강제 중단
 ```
-SendMessage({ to: "workflow-PROJ-216", message: {type: "shutdown_request", reason: "user-cancel"}, summary: "cancel PROJ-216" })
+SendMessage({ to: "workflow-STD-216", message: {type: "shutdown_request", reason: "user-cancel"}, summary: "cancel STD-216" })
 # 응답 shutdown_response approve=true 받으면 worktree 삭제 + jira 상태 되돌리기
 ```
 
@@ -609,7 +609,7 @@ SendMessage({ to: "workflow-PROJ-216", message: {type: "shutdown_request", reaso
 
 ## 17. 변경 이력
 
-- **2026-05-18**: 초안 — PROJ-214~218 W5/W6 묶음 5 이슈 동시 실행 시 적용. SKILL.md (단일 부모 + Tier-2 fan-out) 위에 Tier-1 worktree 격리 + orchestrator 직렬화 패턴 추가.
+- **2026-05-18**: 초안 — STD-214~218 W5/W6 묶음 5 이슈 동시 실행 시 적용. SKILL.md (단일 부모 + Tier-2 fan-out) 위에 Tier-1 worktree 격리 + orchestrator 직렬화 패턴 추가.
 
 ---
 

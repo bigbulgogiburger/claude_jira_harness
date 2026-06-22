@@ -8,7 +8,7 @@
 부모 Jira 이슈 1개 + 그 산하 하위 작업(sub-task) N개를 **한 묶음의 fan-out 단위**로 처리하는 모드.
 
 진입 조건:
-- 사용자가 명시적으로 `--subtasks` 플래그 전달 (예: `/jira-start PROJ-7 --subtasks`)
+- 사용자가 명시적으로 `--subtasks` 플래그 전달 (예: `/jira-start STD-7 --subtasks`)
 - 부모 이슈의 `subtasks` 필드에 하위 키 1개 이상 존재
 
 진입 조건 미충족 시: 일반(부모만) 모드로 폴백. `--subtasks` 가 무의미한 단계도 일반 모드로 동작.
@@ -17,7 +17,7 @@
 
 1. **부모 = primary work item** — 모든 산출물(dev-guide, sprint-contract, verdict, commit) 은 부모 이슈에 귀속
 2. **하위 = 트래킹 미러** — Jira 보드에서 하위 카드도 부모와 동일한 상태/진척을 반영해야 함 (PM/QA 가시성)
-3. **하위 댓글은 짧게** — 1~3 줄, "부모 PROJ-N 의 일부로 X" 패턴. 산출물 본문은 부모에만 (노이즈 방지)
+3. **하위 댓글은 짧게** — 1~3 줄, "부모 STD-N 의 일부로 X" 패턴. 산출물 본문은 부모에만 (노이즈 방지)
 4. **transition 일관성** — 부모와 하위가 같은 상태로 동기화 (To Do → In Progress → QA → Done)
 5. **실패 격리** — 하위 작업 중 1건이 실패해도 다른 하위 + 부모 작업은 계속. 실패는 출력 단계에서 사용자에게 보고
 
@@ -31,7 +31,7 @@
 | **jira-ingest** (forecast) | `INDEX.md` 에 부모 row 추가 (key=`<KEY>`, status=planned) + `LOG.md` forecast 1줄 | 각 slice 의 INDEX row 추가 (key=`<KEY>::<sub>`, parent=`<KEY>`) + LOG slice forecast 1줄/슬라이스. **하위 Jira 댓글 없음** (wiki 자산은 로컬 파일이라 Jira 노이즈 회피) |
 | **jira-ingest** (closure) | INDEX row 갱신 (status=closed) + LOG closure + conditional cross-ref (ADR/sprint) | 각 slice INDEX row closed 갱신 + LOG slice closure. Conditional cross-ref 는 부모 한 번만 (slice 별 ADR ref 가 같으면 중복 회피) |
 | **harness-plan** | `sprint-contract/<KEY>.md` | (산출물은 부모 contract 에 slice 별 DoD 인라인 — 하위 댓글 불필요. 단 verdict 미반영 시 사용자 알림) |
-| **jira-execute** | Phase 0 scaffold + Agent Teams lead + 통합 빌드 + Phase 댓글 | **Agent Teams 모드** (worktree 미사용 — ADR-070 supersession). `TeamCreate({team_name:"PROJ-<PARENT>"})` + slice 마다 `TaskCreate` + `Agent({team_name, name:"slice-PROJ-<SUB>", ...})` spawn. teammate 가 자기 task `completed` 시 lead 가 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`"). ⚠️ `Agent({isolation:"worktree"})` 단독 호출 = sub-agent 회귀 (TeamCreate/team_name/SendMessage 셋 다 누락) — 자세한 안티패턴은 `jira-execute/SKILL.md § 4A` ⚠️ 박스 참조. |
+| **jira-execute** | Phase 0 scaffold + Agent Teams lead + 통합 빌드 + Phase 댓글 | **Agent Teams 모드** (worktree 미사용 — ADR-070 supersession). `TeamCreate({team_name:"STD-<PARENT>"})` + slice 마다 `TaskCreate` + `Agent({team_name, name:"slice-STD-<SUB>", ...})` spawn. teammate 가 자기 task `completed` 시 lead 가 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`"). ⚠️ `Agent({isolation:"worktree"})` 단독 호출 = sub-agent 회귀 (TeamCreate/team_name/SendMessage 셋 다 누락) — 자세한 안티패턴은 `jira-execute/SKILL.md § 4A` ⚠️ 박스 참조. |
 | **harness-review** | aggregate-verdict | slice 별 verdict 가 있으면 `aggregate-verdict/<KEY>-<sub>.md` 추가, 부모 verdict 에서 롤업 |
 | **jira-test** | 통합 빌드/테스트 + 댓글 | (생략 OK — 통합 검증은 부모 산출물. 단 slice 별 단위 테스트 결과를 부모 댓글에 인용) |
 | **jira-commit** | git commit + 댓글 | **모든 하위**에 commit SHA + 1줄 ("commit `<sha>` 에 통합 — 부모 `<KEY>` 댓글 참조") |
@@ -136,4 +136,4 @@ ELSE:
 **Last Updated**: 2026-05-14 (jira-ingest forecast/closure 행 + wiki-lint 행 추가 — Karpathy LLM Wiki 패턴 도입. wiki-lint 는 corpus-scoped 라 `--subtasks` N/A. § 7 에 wiki chain 자동 전파 규칙 추가)
 
 **Previous**: 2026-05-13 (jira-execute § "--subtasks Mode" 를 Agent Teams 기반으로 재작성 — worktree 4분기 패턴 supersede)
-**Previous**: 2026-05-07 (PROJ-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)
+**Previous**: 2026-05-07 (STD-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)

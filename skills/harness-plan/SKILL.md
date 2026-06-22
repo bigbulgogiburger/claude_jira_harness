@@ -49,7 +49,7 @@ triggers:
 이슈 키를 다음 순서로 탐색:
 1. 사용자가 인자로 전달 (예: `/harness-plan PROJ-200`)
 2. `.claude/runtime/workflow-state.json`의 `issue_key`
-3. 현재 git 브랜치명에서 `[A-Z]+-[0-9]+` 패턴 추출 (예: `feature/PROJ-200-*` → `PROJ-200`). Jira project key는 프로젝트마다 다르므로(`PROJ`/`SCRUM`/`PROJ` 등) prefix를 고정하지 않는다.
+3. 현재 git 브랜치명에서 `[A-Z]+-[0-9]+` 패턴 추출 (예: `feature/PROJ-200-*` → `PROJ-200`). Jira project key는 프로젝트마다 다르므로(`SURINP`/`SCRUM`/`PROJ` 등) prefix를 고정하지 않는다.
 4. 없으면 사용자에게 요청
 
 ### Step 2. dev-guide 탐색
@@ -81,7 +81,7 @@ dev-guide가 없으면 경고 출력 후 Jira MCP에서 이슈 본문을 직접 
 dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 
 ```markdown
-# PROJ-XXX Sprint Contract
+# SURINP-XXX Sprint Contract
 
 > 보충 문서 — 원본: [dev-guide 경로]
 > 생성: /harness-plan
@@ -119,7 +119,7 @@ dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 ### Step 5. 파일 저장 + Shared State 갱신 (Read-Merge-Write 필수)
 
 **5.1 Sprint Contract 파일 저장**
-저장 경로: `.claude/runtime/sprint-contract/PROJ-XXX.md`
+저장 경로: `.claude/runtime/sprint-contract/SURINP-XXX.md`
 
 **5.2 workflow-state.json 갱신 (누락 금지)**
 
@@ -129,10 +129,10 @@ dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 2. **Merge**: 기존 필드를 보존하며 다음을 갱신한다:
    ```json
    {
-     "issue_key": "PROJ-XXX",
+     "issue_key": "SURINP-XXX",
      "stage": "plan-supplement",
      "dev_guide_path": "<감지된 dev-guide 경로>",
-     "sprint_contract_path": ".claude/runtime/sprint-contract/PROJ-XXX.md",
+     "sprint_contract_path": ".claude/runtime/sprint-contract/SURINP-XXX.md",
      "updated_at": "YYYY-MM-DDTHH:MM:SS"
    }
    ```

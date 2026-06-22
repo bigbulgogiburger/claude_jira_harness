@@ -78,7 +78,7 @@ tools: Read, Grep, Glob, Bash
 ```markdown
 ---
 name: {prefix}-test-writer
-description: "Use PROACTIVELY when writing tests or when test coverage is needed. Guides JUnit 5, @AppRepositoryTest, Mockito patterns. Never modifies production code."
+description: "Use PROACTIVELY when writing tests or when test coverage is needed. Guides JUnit 5, @SurinRepositoryTest, Mockito patterns. Never modifies production code."
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---

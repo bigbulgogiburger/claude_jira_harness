@@ -14,7 +14,7 @@ Jira 이슈와 프로젝트 코드를 분석하여, 스택 최고 개발자 페�
 /jira-plan <ISSUE-KEY>
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-156, SCRUM-42)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-156, SCRUM-42)
 
 ## Procedure
 
@@ -89,7 +89,7 @@ const hasMemory = HAS_MEMORY  // ← true/false 치환
 const issueBody = ISSUE_BODY  // ← §2 본문 문자열 치환
 const AXES = [
   { axis:'code',  model:'sonnet', prompt:`${issueKey} 영향 파일·기존 패턴·충돌 지점을 스택 소스 디렉토리에서 READ ONLY 수집. kind=impacted-file|pattern, ref=파일경로:라인.` },
-  ...(hasWiki ? [{ axis:'wiki', model:'sonnet', prompt:`${issueKey} 의 docs/INDEX.md cross-ref + ADR "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 수집(READ ONLY). kind=constraint|precedent, ref=ADR-NNN|PROJ-NNN|파일경로. 중복/모순 위험을 note 에.` }] : []),
+  ...(hasWiki ? [{ axis:'wiki', model:'sonnet', prompt:`${issueKey} 의 docs/INDEX.md cross-ref + ADR "NEVER 재도입 금지" 류 제약 + 유사 dev-guide 선례 수집(READ ONLY). kind=constraint|precedent, ref=ADR-NNN|STD-NNN|파일경로. 중복/모순 위험을 note 에.` }] : []),
   { axis:'issue', model:'haiku', prompt:`다음 이슈 요구사항·AC 를 정리: ${issueBody}. kind=requirement, ref=AC 번호 또는 ${issueKey}.` },
   ...(hasMemory ? [{ axis:'memory', model:'haiku', prompt:`${issueKey} 영역의 알려진 함정을 프로젝트 memory 인덱스에서 수집(READ ONLY). kind=trap, ref=memory slug.` }] : []),
 ]

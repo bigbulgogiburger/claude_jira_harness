@@ -125,10 +125,10 @@ cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 �
 결과를 `.claude/runtime/aggregate-verdict.md`에 저장 (**확장 스키마**):
 
 ```markdown
-# Aggregate Verdict — PROJ-XXX Phase N (Iteration M)
+# Aggregate Verdict — SURINP-XXX Phase N (Iteration M)
 
 <!-- ═══ Metadata (Tier 3 측정) ═══ -->
-- **Issue**: PROJ-XXX
+- **Issue**: SURINP-XXX
 - **Phase**: N
 - **Verdict**: PASS | ITERATE | ESCALATE
 - **Iteration**: M/3
@@ -177,7 +177,7 @@ cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 �
 
 ### Step 6. Shared State 갱신 (Read-Merge-Write 필수)
 
-**반드시 aggregate-verdict.md 저장 후 즉시 실행한다.** 이 단계를 건너뛰면 workflow-state와 verdict가 drift하여 게이트 무결성이 깨진다 (과거 PROJ-190에서 66분 drift 발생 사례).
+**반드시 aggregate-verdict.md 저장 후 즉시 실행한다.** 이 단계를 건너뛰면 workflow-state와 verdict가 drift하여 게이트 무결성이 깨진다 (과거 SURINP-190에서 66분 drift 발생 사례).
 
 1. **Read**: `.claude/runtime/workflow-state.json` 파일을 Read로 읽는다.
 2. **Merge**: 기존 필드를 보존하며 다음을 갱신:

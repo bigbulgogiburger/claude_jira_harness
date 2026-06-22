@@ -25,8 +25,8 @@ triggers:
 ## 실행 전제
 
 이 스킬은 **정상 `/harness-workflow` 완료 전**에 호출해야 한다. 시나리오:
-1. 사용자가 PROJ-999 시작 → 5번째마다 shadow 지정
-2. `/harness-shadow PROJ-999` 먼저 실행 → baseline 리뷰 수집
+1. 사용자가 SURINP-999 시작 → 5번째마다 shadow 지정
+2. `/harness-shadow SURINP-999` 먼저 실행 → baseline 리뷰 수집
 3. 그 후 `/harness-workflow` 또는 `/harness-review` 정상 실행
 4. 두 결과를 비교하는 메타 파일 생성
 
@@ -78,10 +78,10 @@ ls .claude/runtime/aggregate-verdict.md 2>/dev/null
 `.claude/runtime/baseline-verdict.md`로 저장 (**aggregate-verdict.md와 동일 스키마**):
 
 ```markdown
-# Baseline Verdict — PROJ-XXX Phase N (Shadow Run)
+# Baseline Verdict — SURINP-XXX Phase N (Shadow Run)
 
 <!-- Metadata -->
-- **Issue**: PROJ-XXX
+- **Issue**: SURINP-XXX
 - **Phase**: N
 - **Mode**: baseline (HARNESS_MODE=off emulated)
 - **Ran At**: YYYY-MM-DDTHH:MM:SSZ
@@ -108,17 +108,17 @@ ls .claude/runtime/aggregate-verdict.md 2>/dev/null
 ════════════════════════════════════════
   Baseline 완료. 이제 Harness full-run을 실행:
 
-  권장: 새 세션에서 /harness-workflow PROJ-XXX
+  권장: 새 세션에서 /harness-workflow SURINP-XXX
   (같은 세션에서 돌리면 baseline에서 본 내용이 Harness 추론을 오염시킴)
 
   두 verdict가 모두 준비되면:
-    → /harness-shadow compare PROJ-XXX
+    → /harness-shadow compare SURINP-XXX
 ════════════════════════════════════════
 ```
 
 ### Step 6. Compare 모드 (두 verdict 준비 후)
 
-`/harness-shadow compare PROJ-XXX` 호출 시:
+`/harness-shadow compare SURINP-XXX` 호출 시:
 
 1. baseline-verdict.md 읽기
 2. aggregate-verdict.md 읽기 (archive에서라도)
@@ -126,14 +126,14 @@ ls .claude/runtime/aggregate-verdict.md 2>/dev/null
    - **Both**: 둘 다 찾음 (Harness 필요 없음 영역)
    - **Harness only**: Harness만 찾음 (positive lift)
    - **Baseline only**: Baseline만 찾음 (Harness의 miss)
-4. 비교 파일 `.claude/runtime/shadow-comparison-PROJ-XXX.md` 작성:
+4. 비교 파일 `.claude/runtime/shadow-comparison-SURINP-XXX.md` 작성:
 
 ```markdown
-# Shadow Comparison — PROJ-XXX
+# Shadow Comparison — SURINP-XXX
 
 ## Participants
 - Baseline: .claude/runtime/baseline-verdict.md (tokens ~30k, duration 2m)
-- Harness: .claude/runtime/archive/PROJ-XXX/aggregate-verdict.md (tokens ~85k, duration 6m)
+- Harness: .claude/runtime/archive/SURINP-XXX/aggregate-verdict.md (tokens ~85k, duration 6m)
 
 ## Overlap Matrix
 

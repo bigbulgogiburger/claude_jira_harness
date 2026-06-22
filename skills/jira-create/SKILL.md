@@ -46,7 +46,7 @@ description: "jira-create — 자연어 한 줄 또는 문서를 읽어 Jira 이
 다음 우선순위로 **첫 번째로 확정되는 값**을 사용한다:
 
 1. **사용자 입력 명시** — `[STD]`, `STD 프로젝트`, `--prefix STD` 등
-2. **현재 git 브랜치명** — `feature/PROJ-200-foo` → `PROJ`
+2. **현재 git 브랜치명** — `feature/SURINP-200-foo` → `SURINP`
 3. **최근 브랜치 목록** — `git branch --all | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | sort -u | head` 결과의 다수 prefix
 4. **최근 커밋 메시지** — `git log --oneline -50 | grep -oE '[A-Z][A-Z0-9]+-[0-9]+'`
 5. **`mcp__atlassian__getVisibleJiraProjects`** — `action: "create"` 로 호출하여 사용 가능한 프로젝트 목록 조회. 1개뿐이면 그것 사용. 여러 개면 다음 6번으로.
@@ -222,7 +222,7 @@ mcp__atlassian__createJiraIssue
   summary: "[Dashboard] KPI 위젯 추가"
   description: <마크다운 본문>
   contentFormat: "markdown"
-  parent: "PROJ-300"          ← top-level
+  parent: "STD-300"          ← top-level
   additional_fields: {
     "labels": ["vue", "frontend", "feature"]
   }
@@ -237,13 +237,13 @@ mcp__atlassian__createJiraIssue
   summary: "위젯 골격 + 스타일"
   description: <마크다운 본문>
   contentFormat: "markdown"
-  parent: "PROJ-301"          ← top-level (부모 Story 키)
+  parent: "STD-301"          ← top-level (부모 Story 키)
   additional_fields: {
     "labels": ["vue", "frontend"]
   }
 ```
 
-> **company-managed(클래식) 프로젝트 예외**: 일부 클래식 프로젝트에서는 Epic↔Story 링크가 별도 커스텀 필드(흔히 `customfield_10014`, "Epic Link")로 동작할 수 있다. 그 경우 top-level `parent` 가 거부될 수 있으니, 실패 시 `getJiraIssueTypeMetaWithFields` 로 해당 issueType 의 필수 필드를 확인하고, `additional_fields: {"customfield_10014": "PROJ-300"}` 로 재시도. **메타가 알려준 필드만 사용** — 추측 금지.
+> **company-managed(클래식) 프로젝트 예외**: 일부 클래식 프로젝트에서는 Epic↔Story 링크가 별도 커스텀 필드(흔히 `customfield_10014`, "Epic Link")로 동작할 수 있다. 그 경우 top-level `parent` 가 거부될 수 있으니, 실패 시 `getJiraIssueTypeMetaWithFields` 로 해당 issueType 의 필수 필드를 확인하고, `additional_fields: {"customfield_10014": "STD-300"}` 로 재시도. **메타가 알려준 필드만 사용** — 추측 금지.
 
 > **마크다운 줄바꿈 주의**: description에 리터럴 `\n` 문자열을 넣지 말고 실제 개행문자를 사용한다. 목록은 `- ` 마크다운 문법.
 
@@ -252,13 +252,13 @@ mcp__atlassian__createJiraIssue
 ```
 ✅ 이슈 등록 완료
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔗 PROJ-247 — [Dashboard] KPI 위젯 추가
+🔗 STD-247 — [Dashboard] KPI 위젯 추가
 🏷️ 라벨: vue, frontend, feature
 📂 타입: Story
-🌐 https://<site>.atlassian.net/browse/PROJ-247
+🌐 https://<site>.atlassian.net/browse/STD-247
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-다음 단계: /jira-start PROJ-247
+다음 단계: /jira-start STD-247
 ```
 
 ## 벌크 모드 (문서 → Epic → Issue → Subtask)
@@ -282,7 +282,7 @@ mcp__atlassian__createJiraIssue
 - **마크다운 사용**: `contentFormat: "markdown"`. ADF JSON 직접 작성 금지 (가독성/유지보수 손해).
 - **체크박스 사용**: `- [ ]` 는 Jira 에디터에서 인터랙티브 체크박스로 렌더링되어 인수조건/DoD 추적에 유용.
 - **헤딩 레벨**: H2(`##`)로 섹션, H3(`###`)로 하위 구분. H1은 제목과 중복되니 사용하지 않는다.
-- **링크**: 마크다운 링크 `[텍스트](URL)` 그대로 동작. 이슈 키는 그냥 `PROJ-247` 로 적으면 자동 링크.
+- **링크**: 마크다운 링크 `[텍스트](URL)` 그대로 동작. 이슈 키는 그냥 `STD-247` 로 적으면 자동 링크.
 - **코드/명령**: 백틱 `` ` `` 또는 펜스 코드블록 ``` ``` ``` 사용.
 
 ## Error Handling

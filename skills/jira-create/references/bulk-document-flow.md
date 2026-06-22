@@ -142,12 +142,12 @@ mcp__atlassian__searchJiraIssuesUsingJql
 1) Epic 등록
    issueTypeName: "Epic"
    parent 없음
-   → 키 보관 (예: PROJ-300)
+   → 키 보관 (예: STD-300)
 
 2) Story / Task / Bug 등록
    issueTypeName: "Story" | "Task" | "Bug"
    parent: <에픽 키>  ← team-managed 프로젝트는 parent 필드, company-managed 는 메타 확인 필요
-   → 각 키 보관 (예: PROJ-301, PROJ-302)
+   → 각 키 보관 (예: STD-301, STD-302)
 
 3) Sub-task 등록
    issueTypeName: "Sub-task"
@@ -167,15 +167,15 @@ mcp__atlassian__searchJiraIssuesUsingJql
 
 ```
 🔄 등록 중 — STD 프로젝트
-[1/8] ✅ Epic PROJ-300 [W1-W4] 대시보드 KPI 개편
-[2/8] ✅ Story PROJ-301 [Dashboard] KPI 위젯 컴포넌트
-[3/8] ✅ Story PROJ-302 [Dashboard] 대시보드 라우트에 위젯
-[4/8] ✅ Task  PROJ-303 [API] KPI 집계 엔드포인트
-[5/8] ✅ Bug   PROJ-304 [Dashboard] 차트 리사이즈 시 깜빡임
-[6/8] ✅ Sub   PROJ-305 위젯 골격 + 스타일 (parent: PROJ-301)
-[7/8] ✅ Sub   PROJ-306 데이터 fetch 훅 (parent: PROJ-301)
-[8/8] ✅ Sub   PROJ-307 캐시 정책 결정 + 적용 (parent: PROJ-303)
-🔗 링크 1개: PROJ-301 blocked-by PROJ-303
+[1/8] ✅ Epic STD-300 [W1-W4] 대시보드 KPI 개편
+[2/8] ✅ Story STD-301 [Dashboard] KPI 위젯 컴포넌트
+[3/8] ✅ Story STD-302 [Dashboard] 대시보드 라우트에 위젯
+[4/8] ✅ Task  STD-303 [API] KPI 집계 엔드포인트
+[5/8] ✅ Bug   STD-304 [Dashboard] 차트 리사이즈 시 깜빡임
+[6/8] ✅ Sub   STD-305 위젯 골격 + 스타일 (parent: STD-301)
+[7/8] ✅ Sub   STD-306 데이터 fetch 훅 (parent: STD-301)
+[8/8] ✅ Sub   STD-307 캐시 정책 결정 + 적용 (parent: STD-303)
+🔗 링크 1개: STD-301 blocked-by STD-303
 ```
 
 ### 9. 최종 결과 출력
@@ -186,15 +186,15 @@ mcp__atlassian__searchJiraIssuesUsingJql
 출처: docs/w1-w4.md
 총 8개 이슈 (Epic 1, Story 2, Task 1, Bug 1, Sub-task 3)
 
-📦 Epic: PROJ-300 — [W1-W4] 대시보드 KPI 개편
-🌐 https://<site>.atlassian.net/browse/PROJ-300
+📦 Epic: STD-300 — [W1-W4] 대시보드 KPI 개편
+🌐 https://<site>.atlassian.net/browse/STD-300
 
 🌳 트리:
-  PROJ-300 (Epic)
-   ├─ PROJ-301 (Story) ─ 자식 PROJ-305, PROJ-306
-   ├─ PROJ-302 (Story)
-   ├─ PROJ-303 (Task)  ─ 자식 PROJ-307
-   └─ PROJ-304 (Bug)
+  STD-300 (Epic)
+   ├─ STD-301 (Story) ─ 자식 STD-305, STD-306
+   ├─ STD-302 (Story)
+   ├─ STD-303 (Task)  ─ 자식 STD-307
+   └─ STD-304 (Bug)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 다음 단계: 작업할 이슈를 골라 /jira-start <KEY>
@@ -228,7 +228,7 @@ mcp__atlassian__searchJiraIssuesUsingJql
 
 ## 출처
 - docs/w1-w4.md, "주차 1" 섹션
-- 부모 에픽: PROJ-300
+- 부모 에픽: STD-300
 ```
 
 Sub-task 의 description 은 더 짧아도 된다 — 부모 컨텍스트가 있다.
@@ -240,7 +240,7 @@ Sub-task 의 description 은 더 짧아도 된다 — 부모 컨텍스트가 있
 ## 인수조건
 - [ ] <한 줄>
 
-부모: PROJ-301
+부모: STD-301
 ```
 
 ## 라벨 자동 부여 (벌크 모드)

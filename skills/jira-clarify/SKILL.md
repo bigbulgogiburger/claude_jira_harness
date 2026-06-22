@@ -15,7 +15,7 @@ description: "jira-clarify — 대충 쓴 Jira 이슈를 구체화하고, 멀티
 /jira-clarify <ISSUE-KEY>
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-156)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-156)
 
 ## 왜 이 단계가 필요한가
 

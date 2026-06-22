@@ -63,7 +63,7 @@ CLAUDE.md에 빌드/타입체크 명령이 명시되어 있으면 그것을 우�
 
 ### Step 3. Sprint Contract DoD 체크
 
-Sprint Contract (`.claude/runtime/sprint-contract/PROJ-XXX.md`)가 있으면:
+Sprint Contract (`.claude/runtime/sprint-contract/SURINP-XXX.md`)가 있으면:
 - "Definition of Done" 섹션의 체크박스 상태 확인
 - 미완료 항목이 있으면 경고 (차단은 아님)
 

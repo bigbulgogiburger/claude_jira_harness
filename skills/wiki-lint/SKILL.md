@@ -26,7 +26,7 @@ description: "wiki-lint — Karpathy LLM Wiki 패턴의 정기 health check. doc
 | "orphan 검출" / "L05 만" / "ADR 깨진 거 찾아줘" | specific rule (해당 ID 만) |
 | "high 만" / "심각한 거" | severity 필터 (high 이상) |
 | "최근 N일" / "이번 주" | since 인크리멘탈 (해당 기간 변경 파일만) |
-| "PROJ-247 만" / "이 이슈 점검" | issue scope (해당 이슈 관련 체크만) |
+| "STD-247 만" / "이 이슈 점검" | issue scope (해당 이슈 관련 체크만) |
 | "JSON 으로" / "머신 출력" | JSON 모드 (CI 통합용) |
 
 ## ⛔ Guard — Wiki 자산 존재 확인
@@ -70,7 +70,7 @@ for f in glob('docs/<ISSUE_PREFIX>-*-dev-guide.md'):
   key = parse_key(f)
   if key not in INDEX:
     violations.append(L01, file=f, key=key)
-auto_fix: jira-ingest 의 backfill 모드를 자연어로 chain ('PROJ-247 INDEX 에 누락 — 추가해줘')
+auto_fix: jira-ingest 의 backfill 모드를 자연어로 chain ('STD-247 INDEX 에 누락 — 추가해줘')
 ```
 
 #### L02 — Orphan reverse (high, manual)
@@ -141,7 +141,7 @@ for guide in INDEX.issue_guides:
     jira_status = atlassian.getJiraIssue(guide.key).status
     if jira_status in ['QA', 'Done']:
       violations.append(L14, guide, jira_status)
-auto_fix: jira-ingest closure 자연어 chain ('PROJ-247 closure 처리')
+auto_fix: jira-ingest closure 자연어 chain ('STD-247 closure 처리')
 ```
 Jira API 실패 시 해당 체크만 skip + 경고.
 
@@ -161,14 +161,14 @@ auto_fix: 누락된 라인 append.
 ━━━ ❌ ERRORS ━━━
 
 ❌ L05 (Xref, high) — Broken ADR reference [3건]
-  • docs/PROJ-247-dev-guide.md:52 → ADR-099 (decision-log 에 없음)
+  • docs/STD-247-dev-guide.md:52 → ADR-099 (decision-log 에 없음)
     Levenshtein 후보: ADR-029, ADR-060
   • ...
 
 ━━━ ⚠️ WARNINGS ━━━
 
 ⚠️ L03 (Stale, medium) — 'planned' 상태 7일 초과 [4건]
-  PROJ-201 (10d), PROJ-198 (12d), PROJ-196 (15d), PROJ-195 (21d)
+  STD-201 (10d), STD-198 (12d), STD-196 (15d), STD-195 (21d)
   → 진행 중이면 status=implementing 갱신, 폐기면 status=abandoned
 
 ━━━ 📊 SUMMARY ━━━
@@ -180,7 +180,7 @@ Manual review:       5건
 
 권장 다음 단계:
   1. 자동 수정 4건 처리
-  2. PROJ-201/198/196/195 status 결정
+  2. STD-201/198/196/195 status 결정
   3. memory drift 검토
 ```
 
@@ -256,7 +256,7 @@ Skill('wiki-lint', '전체 점검 — baseline 확보')
       "severity": "high",
       "category": "xref",
       "auto_fixable": false,
-      "file": "docs/PROJ-247-dev-guide.md",
+      "file": "docs/STD-247-dev-guide.md",
       "line": 52,
       "evidence": "ADR-099 not in decision-log",
       "suggestions": ["ADR-029", "ADR-060"]

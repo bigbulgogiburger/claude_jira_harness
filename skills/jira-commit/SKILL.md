@@ -15,7 +15,7 @@ Jira API에 보내는 텍스트에 리터럴 `\n` 문자열을 넣지 마라 —
 /jira-commit <ISSUE-KEY> [commit-message]
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-20)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-20)
 - `commit-message` (선택): 커밋 메시지. 미입력 시 변경사항 분석 후 자동 생성
 
 ## Commit Message Format

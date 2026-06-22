@@ -27,7 +27,7 @@ A subagent was dispatched with the wrong agent type (e.g., Explore is read-only 
 
 ## More than half of chunks failed or missing
 
-Stop and tell the user to re-run, enappg `subagent_type="general-purpose"` is used for all chunks in Step 3B2.
+Stop and tell the user to re-run, ensuring `subagent_type="general-purpose"` is used for all chunks in Step 3B2.
 
 ## `import graphify` fails after Step 1
 

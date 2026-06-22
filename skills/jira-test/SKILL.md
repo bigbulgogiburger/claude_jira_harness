@@ -77,7 +77,7 @@ description: "jira-test — 코드 변경사항에 대해 스택별 통합 테�
 
 1. 통합 빌드/테스트는 부모 1회만 수행 (slice 별 별도 빌드 X)
 2. **하위 이슈에는 댓글 추가하지 않음** (테스트 결과는 부모 산출물 — 노이즈 방지)
-3. 단, slice 별 단위 테스트 결과를 파악할 수 있으면 부모 댓글에 인용 (예: "PROJ-75 4 PASS / PROJ-76 7 PASS / PROJ-77 4 PASS")
+3. 단, slice 별 단위 테스트 결과를 파악할 수 있으면 부모 댓글에 인용 (예: "STD-75 4 PASS / STD-76 7 PASS / STD-77 4 PASS")
 4. 테스트 실패 시 어느 slice 의 테스트가 실패했는지 명확히 표시
 
 자세한 정책: `~/.claude/skills/_subtasks-convention.md` § 3

@@ -14,7 +14,7 @@ Jira 이슈를 조회하고 feature 브랜치를 생성한 뒤 상태를 In Prog
 /jira-start <ISSUE-KEY>
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-20, SCRUM-42, PROJ-100)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-20, SCRUM-42, PROJ-100)
 
 ## Procedure
 

@@ -18,7 +18,7 @@ Jira API에 보내는 텍스트에 리터럴 `\n` 문자열을 넣지 마라 —
 /jira-complete <ISSUE-KEY> --subtasks --no-organize   # 두 플래그 동시 사용 가능
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-20)
+- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-20)
 - `--no-organize`: §4.6 위생 체크는 수행하되 임계점 도달 시 organize-claude-md 자동 호출은 스킵하고 권고 메시지만 출력. 나중에 별도로 organize 를 돌리고 싶을 때.
 - `--subtasks`: 부모 + 모든 하위 이슈 일괄 QA 전이. 자세한 정책은 `~/.claude/skills/_subtasks-convention.md`.
 
@@ -93,7 +93,7 @@ git push -u origin feature/<ISSUE-KEY>
 2. 호출 흔적 없으면 → **지금 즉시 호출** + 사용자에게 "§4.4 chain 누락 감지 → 사후 호출함" 1줄 보고
 3. 그래도 호출 못 한 사유 (skill 부재 등) 가 있으면 사용자에게 명시 경고 (조용한 skip 금지)
 
-> 💡 **harness-workflow 또는 직접 호출 무관** — `/jira-complete` 가 호출되는 모든 경로에서 본 chain 은 반드시 발화. harness-workflow Phase 7 이 jira-complete skill 호출 없이 직접 transition/push 만 수행하면 본 chain 이 통째로 누락된다 (2026-05-14 PROJ-208 사고). harness-workflow 도 반드시 `Skill('jira-complete', ...)` 로 진입해야 §4.4 + §4.7 둘 다 발화 보장.
+> 💡 **harness-workflow 또는 직접 호출 무관** — `/jira-complete` 가 호출되는 모든 경로에서 본 chain 은 반드시 발화. harness-workflow Phase 7 이 jira-complete skill 호출 없이 직접 transition/push 만 수행하면 본 chain 이 통째로 누락된다 (2026-05-14 STD-208 사고). harness-workflow 도 반드시 `Skill('jira-complete', ...)` 로 진입해야 §4.4 + §4.7 둘 다 발화 보장.
 
 #### 조건
 
@@ -203,7 +203,7 @@ jira-ingest 가 수행:
    | 지표 | 임계점 |
    |------|--------|
    | 줄 수 | 단일 프로젝트 120 초과 / monorepo root 150 초과 / sub 120 초과 |
-   | 누적 closure 라인 수 | 5개 이상 (`Last Updated:` 라인부터 EOF 영역에서 `^- (PROJ-|PROJ-|[A-Z]+-)\d+` 패턴 또는 `**오늘 closure` 헤더 개수) |
+   | 누적 closure 라인 수 | 5개 이상 (`Last Updated:` 라인부터 EOF 영역에서 `^- (STD-|SURINP-|[A-Z]+-)\d+` 패턴 또는 `**오늘 closure` 헤더 개수) |
    | "Last Updated" 섹션 크기 | 약 3K 토큰 이상 (대략 12,000 자 — 1 token ≈ 4 chars 기준) |
 
    - Monorepo 판단 기준: root CLAUDE.md 에 `## Sub-Projects` / `## Sub Projects` 표가 있거나, sub 디렉토리에 자체 CLAUDE.md 가 존재. 둘 다 아니면 단일 프로젝트 (120 임계점 적용).
