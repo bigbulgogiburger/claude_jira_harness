@@ -19,6 +19,39 @@ Jira 이슈 한 줄을 받아서 **등록 → 시작 → 구체화 → 계획 �
 - **영구 지식 자산화** — dev-guide·ADR·외부 문서를 build-time 합성해 `docs/INDEX.md`·`docs/LOG.md` wiki로 누적. RAG 아닌 원본 보존 + 합성 패턴.
 - **병렬 fan-out 운영 규율** — 여러 부모 이슈를 git worktree 격리로 동시 실행하는 2-tier 직렬화·머지·복구 규칙까지 SSoT로 명문화.
 
+## ⚡ 5분 만에 시작하기 (0 → 첫 이슈 완료)
+
+스킬을 [설치](#설치)한 뒤, 새 프로젝트에 이 스킬셋을 붙여 **첫 Jira 이슈를 끝까지 미는 최단 경로**다. 네 단계면 환경 셋업부터 부모+하위 이슈 일괄 완료까지 도달한다.
+
+**1️⃣ Jira MCP 설정 + 인증** — `jira-*` 스킬이 `mcp__atlassian__*` 도구를 쓰려면 Atlassian Remote MCP 서버가 연결돼 있어야 한다.
+
+```bash
+# Claude Code 에 Atlassian Remote MCP 등록
+claude mcp add atlassian -t sse https://mcp.atlassian.com/v1/sse
+```
+
+그다음 Claude Code 세션에서 `/mcp` → `atlassian` → **Authenticate** 로 브라우저 OAuth 인증을 마친다. (`/mcp` 로 `atlassian` 이 `connected` 로 보이면 완료.)
+
+**2️⃣ `/organize-claude-md full`** — 프로젝트의 `CLAUDE.md` 를 Lazy Loading 참조 구조로 재구성해, 에이전트가 매 세션 컨텍스트를 가볍게 로드하도록 만든다.
+
+```
+/organize-claude-md full
+```
+
+**3️⃣ `/harness-setup auto`** — 스택을 자동 감지(Spring Boot / Vue / React …)해 프로젝트 전용 에이전트·훅·메트릭 인프라와 `.claude/runtime/` 를 프로비저닝한다. 멱등이라 이미 구성된 프로젝트에 다시 돌려도 안전하다.
+
+```
+/harness-setup auto
+```
+
+**4️⃣ `/harness-workflow <ISSUE> --subtasks`** — 부모 이슈 1개 + 하위 N개를 한 fan-out 단위로 **등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료** 까지 한 번에 민다. 산출물은 부모에 귀속되고 하위는 트래킹 미러로 동기된다.
+
+```
+/harness-workflow PROJ-7 --subtasks
+```
+
+> 단계별 슬래시 사이클 전체 흐름과 멀티부모 병렬은 아래 [🚀 빠른 시작](#-빠른-시작) 참조.
+
 ## 🔄 엔드투엔드 파이프라인
 
 ```mermaid
