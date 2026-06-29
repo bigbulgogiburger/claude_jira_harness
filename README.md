@@ -157,6 +157,7 @@ Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출
 
 ## 🆕 What's New
 
+- **Agent Teams — v2.1.178+ 정합 + 환경 가드** — `TeamCreate`/`TeamDelete` 제거(v2.1.178)에 맞춰 `jira-execute §4A`·`parallel-fanout` 을 **자연어 teammate spawn** 으로 전환하고 **환경 분기 가드**를 도입: interactive `claude` 터미널은 Agent Teams(teammate self-claim + SendMessage), SDK/통합앱/CI 는 `§4A-FB` sub-agent fan-out 으로 폴백. 더불어 `harness-*` 의 비표준 `triggers:` frontmatter 필드를 제거하고 키워드를 `description` 에 흡수(자동 호출 신뢰도 회복).
 - **`/jira-plan` — Dynamic Workflow 모드** — 이슈 분석 시 Claude Code **v2.1.154+** 의 `Workflow` 툴로 단방향 fan-out + verify 엔진을 범용·조건부로 적용해 dev-guide 생성 흐름을 강화. 전면 대체가 아니라 plan PoC scope로 흡수하며, Workflow 미지원·구버전이면 인라인 모드로 자동 폴백 (자세히는 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조).
 - **`/harness-workflow` — 모드 결정 트리 + 멀티부모 병렬** — 단일/`--subtasks`/다중 부모를 자동 판별하는 결정 트리. `<KEY1> <KEY2> …`로 여러 부모를 git worktree 격리해 2-tier(Tier-1 워크플로 + Tier-2 teammate)로 동시 실행하며, 머지 순서·승인 게이트·Hook race를 orchestrator가 직렬화.
 - **`/graphify` — `references/` 리팩터 + 출력 확장** — 번들을 `references/`로 정리하고 산출물을 Obsidian·MCP·Neo4j·wiki 내보내기 + watch(증분 갱신)까지 확장.
@@ -172,7 +173,7 @@ Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출
 | 기능 | 최소 버전 | 활성화 | 미충족 시 |
 | ---- | --------- | ------ | --------- |
 | **Workflow 툴 (Dynamic Workflows)** — `jira-plan` 모드 (A) | Claude Code **v2.1.154+** (2026-05-28) | 기본 활성 (별도 플래그 불필요) | `jira-plan` 인라인 모드 (B) 로 자동 폴백 |
-| **Agent Teams** — `parallel-fanout` Tier-2 / `jira-execute` 병렬 구현 | Claude Code **v2.1.32+** | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode` | 단방향 sub-agent fan-out 으로 폴백 (실험적·기본 비활성) |
+| **Agent Teams** — `jira-execute §4A` / `parallel-fanout` Tier-1·2 | **interactive `claude` 터미널 전용**, v2.1.178+ (`TeamCreate` 없이 자연어 spawn) | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode` | **SDK/통합앱/CI 는 `§4A-FB` sub-agent fan-out 으로 폴백** (실험적·기본 비활성) |
 
 > 나머지 모든 스킬(Jira 사이클·Harness 리뷰·LLM Wiki)은 위 기능 없이도 동작한다. 버전 게이트는 **Dynamic Workflow / 병렬 fan-out 최적화 경로에만** 적용된다.
 
