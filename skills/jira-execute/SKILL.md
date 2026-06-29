@@ -6,7 +6,7 @@ description: "jira-execute — docs/<ISSUE-KEY>-dev-guide.md를 읽고 스택 �
 # jira-execute — 개발 가이드 기반 구현 실행
 
 개발 가이드 MD 파일을 읽고, 스택 최고 개발자 페르소나로 실제 구현을 진행합니다.
-MD에 병렬 작업 가이드가 있으면 Agent Teams를 생성하여 병렬 개발을 수행합니다.
+MD에 병렬 작업 가이드가 있으면 background teammate(병렬 Agent)를 spawn하여 병렬 개발을 수행합니다.
 지라에 댓글이나 설명을 작성할 때에는 한글로 작성합니다.
 
 ## Usage
@@ -52,9 +52,9 @@ MD 파일의 `## 5. 병렬 작업 가이드` 섹션 존재 여부로 실행 모�
 
 ```
 IF "## 5. 병렬 작업 가이드" 섹션 존재 AND "Agent Teams 구성" 테이블 존재:
-  → 병렬 실행 모드 (Step 4A) — Agent Teams 자동 진입
+  → 병렬 모드 (§ 4A 진입 → 환경 분기: Agent Teams / § 4A-FB sub-agent / § 4B 순차)
 ELSE IF "--subtasks" 플래그 AND 부모 이슈에 하위 작업 존재:
-  → 병렬 실행 모드 (Step 4A) — slice 마다 1 teammate 자동 spawn
+  → 병렬 모드 (§ 4A 진입 → 환경 분기) — slice 마다 1 워커
 ELSE:
   → 순차 실행 모드 (Step 4B)
 ```
@@ -76,54 +76,59 @@ ELSE:
 
 ### 4A. 병렬 실행 모드 (Agent Teams) — **operational**
 
-> 이 절은 자연어 묘사가 아니라 **구체적 도구 호출 시퀀스**입니다. 모든 step 을 순서대로 그대로 실행하세요. "팀 생성 프롬프트를 구성한다" 같은 추상 표현으로 대체 금지.
+> **🧭 환경 분기 (진입 시 최우선) — § 4A / § 4A-FB / § 4B**:
+> Agent Teams(teammate self-claim + SendMessage 협업)는 **interactive `claude` 터미널(TUI) 전용**이다. SDK/통합앱/CI/비대화형 환경에서는 미지원 — 직접 `Agent()` 가 항상 sub-agent 로 떨어진다(Task 도구 없음, 실측 확인).
+> - **§ 4A (Agent Teams)**: interactive TUI + 협업(contract 합의·적대 검토)이 필요할 때.
+> - **§ 4A-FB (sub-agent fan-out)**: Agent Teams 미지원 환경(SDK/통합앱/CI) + disjoint files 병렬. lead 가 결과 회수.
+> - **§ 4B (순차)**: 의존성 많거나 단순.
+>
+> **확신이 없으면 § 4A-FB 로 가라**: sub-agent fan-out 은 interactive·SDK 어느 환경에서나 동작한다(협업만 불가). 협업(contract 합의·적대 검토)이 **꼭** 필요할 때만 사용자에게 "interactive `claude` 터미널인가" 확인 후 § 4A. (§ 3 의 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 확인과 중복 판별하지 않는다.)
+
+> **spawn 은 자연어, 관리는 도구.** v2.1.178+ 에서 teammate 는 lead 가 **자연어로 spawn 요청**하면 런타임이 팀 컨텍스트로 띄웁니다(사용자 승인 경유). lead 가 `Agent({...})` 를 **직접 도구 호출하면 sub-agent 로 떨어져** Task self-claim·팀 메일박스가 동작하지 않습니다(아래 ⚠️ 박스 + 실측 확인됨). 반면 task 관리(`TaskCreate`/`TaskUpdate`)와 메일박스(`SendMessage`)는 lead 의 명시 도구 호출입니다.
 
 > ## ⚠️ Sub-agent 회귀 안티패턴 차단 (모델 자가 점검 필수)
 >
-> Agent Teams 호출 시 모델이 흔히 `Agent({ subagent_type: "general-purpose", isolation: "worktree" })` 로 회귀합니다. **이건 sub-agent + 워크트리 격리** 이지 Agent Teams 가 **아닙니다**. 이름이 비슷해 자주 혼동 — 메모리에 "claude agent teams Wave 운영 패턴" 같은 비공식 명명이 있어도 그건 sub-agent 패턴이고 공식 Agent Teams 가 아닙니다.
+> **v2.1.178 부터 `TeamCreate`/`TeamDelete` 도구는 제거됐고, 팀은 첫 teammate spawn 시 세션에서 자동 형성됩니다** (`team_name` 은 무시됨). 하지만 teammate 와 sub-agent 는 **여전히 다른 메커니즘**입니다 — 이름이 비슷해 자주 혼동되니 주의. teammate 는 공유 Task list 에 참여(self-claim)하고 SendMessage 로 양방향 통신하지만, sub-agent 는 결과만 단방향으로 lead 에 회수합니다(Task 도구 없음 — 실측 확인). 회귀란 **협업 teammate 가 필요한데 lead 가 `Agent({...})` 를 직접 도구 호출해 sub-agent 로 결과만 받는 것**입니다.
 >
-> **회귀 신호 5 — 1개라도 보이면 STOP**:
-> 1. `TeamCreate` 호출 없이 `Agent` tool 만 호출
-> 2. `team_name` 파라미터 없이 `Agent` spawn
-> 3. `SendMessage` 미사용 + 메인이 직접 agent 결과 회수
-> 4. `isolation: "worktree"` 옵션을 "Agent Teams = 워크트리" 라고 동일시
-> 5. agent prompt 안에 "isolation 으로 격리한다" 만 적혀있고 팀 컨텍스트 (team_name, 다른 팀원 이름) 가 전무
+> **⚠️ 적용 범위**: 이 박스는 **§ 4A(협업 teammate)를 의도할 때만** 적용된다. § 4A-FB(Agent Teams 미지원 환경의 **의도적** sub-agent fan-out)·§ 4B 는 정상 경로이며 아래 STOP 신호가 적용되지 않는다 — 거기선 `Agent()` 직접 호출·`isolation:"worktree"` 가 올바른 동작이다.
 >
-> **강제 자가검증** (§ 4A-0 ToolSearch 호출 직전 1줄로 자기에게 묻기): "내가 호출하려는 도구 시퀀스가 `TeamCreate → TaskCreate × N → Agent({team_name, name}) × N → SendMessage` 인가? 단순 `Agent({isolation:worktree}) × N` 만이면 회귀 — § 4B 폴백 또는 사용자에게 '이 작업이 진짜 Agent Teams 가 적절한가, 아니면 sub-agent + worktree 로 충분한가' 재확인."
+> **회귀 신호 (§ 4A 를 의도할 때) — 1개라도 보이면 STOP**:
+> 1. teammate 가 필요한데 `Agent({...})` 를 **직접 도구 호출**해서 결과만 회수 (자연어 spawn 경로 미사용 → sub-agent)
+> 2. spawn 된 워커가 `TaskList`/`TaskUpdate` 로 self-claim 을 못 함 (= sub-agent. teammate 는 Task 도구 보유)
+> 3. 팀원 간 `SendMessage` 협의 없이 lead 가 모든 걸 중개 (= sub-agent 단방향)
+> 4. `isolation: "worktree"` 로 워커 격리 → 단일 워킹트리 disjoint-files 협업 불가 (sub-agent 성격)
+> 5. 공유 Task list (lead 의 `TaskCreate`/`TaskUpdate(owner)`) 가 아예 없음
 >
-> **둘 차이 (도구 측면)**:
+> **강제 자가검증** (spawn 직전 자문): "나는 teammate 를 **자연어로 spawn 요청**(사용자 승인 경유)하고, 그 teammate 가 공유 Task 를 self-claim + SendMessage 협업하는가? `Agent({...})` 를 직접 호출해 결과만 회수하면 sub-agent 회귀 — § 4B 순차 폴백 또는 사용자에게 '진짜 협업이 필요한가, disjoint fan-out 이면 순차로 충분한가' 재확인."
 >
-> | | sub-agent + `isolation:worktree` | 진짜 Agent Teams (이 § 4A) |
+> **둘 차이**:
+>
+> | | sub-agent (단방향 워커) | 협업 teammate (이 § 4A) |
 > |---|---|---|
-> | 핵심 도구 | `Agent` tool 단독 | `TeamCreate` + `Agent({team_name, name})` + `SendMessage` + `TeamDelete` |
-> | 컨텍스트 | 자체 컨텍스트, 메인이 결과 회수 (단방향) | 자체 컨텍스트 + 메일박스 + 공유 task list |
-> | 팀원 간 통신 | 불가 (메인 거쳐야) | `SendMessage({to:"이름"})` 직접 메시지 |
-> | 적합 작업 | disjoint fan-out, dev-guide 4 파일 작성, 단순 조사 (토큰↓) | 협업·적대 토론·공유 contract 합의·multi-perspective 검토 (토큰↑↑) |
-> | 활성화 | 기본 도구 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + Claude Code v2.1.32+ + `teammateMode` |
+> | spawn 방법 | `Agent({...})` 직접 도구 호출 | lead 에게 **자연어로 spawn 요청** (사용자 승인) |
+> | Task 도구 | 없음 (결과만 회수) | `TaskList`/`TaskUpdate` self-claim 보유 |
+> | 컨텍스트 | 자체 컨텍스트, lead 가 결과 회수 (단방향) | 자체 컨텍스트 + 메일박스 + 공유 task list |
+> | 팀원 간 통신 | 불가 (lead 거쳐야) | `SendMessage({to:"이름"})` 직접 메시지 |
+> | 적합 작업 | disjoint fan-out, dev-guide 4 파일 작성, 단순 조사 (토큰↓) | 협업·적대 토론·공유 contract 합의 (토큰↑↑) |
+> | 활성화 | 기본 도구 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode` (v2.1.178+: TeamCreate 없이 자동 형성) |
 >
-> **언제 회귀가 정답인가**: 사용자가 명시적으로 "sub-agent + worktree 로 충분" 또는 "Agent Teams 비용 아끼자" 라고 했을 때만. 그 외엔 § 4A 시퀀스 그대로.
+> **언제 sub-agent 가 정답인가**: disjoint fan-out (팀원 간 합의 불요, 결과만 모으면 됨)·단순 조사. 협업(contract 합의·적대 검토)이 필요하면 teammate.
 
-**4A-0. Deferred tool 스키마 로드 (스킵 금지)**
+**4A-0. Deferred tool 스키마 로드 (lead 용, 스킵 금지)**
 
-Agent Teams 도구들은 deferred — 기본 도구 목록에 스키마가 없습니다. 호출 전에 한 번만 ToolSearch 로 로드:
-
-```
-ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
-```
-
-> Agent tool 의 `team_name` / `name` 파라미터는 default 로드돼 있어 별도 fetch 불필요.
-
-**4A-1. 팀 생성**
+lead 가 쓸 팀 관리 도구(`Task*` / `SendMessage`)는 deferred — 기본 도구 목록에 스키마가 없습니다. 호출 전에 한 번만 ToolSearch 로 로드:
 
 ```
-TeamCreate({
-  team_name: "STD-<KEY>",          // 예: "STD-49"
-  agent_type: "lead",
-  description: "<이슈 제목> — N slice 병렬 구현 (jira-execute)"
-})
+ToolSearch({ query: "select:TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
 ```
 
-생성 시 `~/.claude/teams/STD-<KEY>/config.json` + `~/.claude/tasks/STD-<KEY>/` 가 만들어집니다.
+> teammate spawn 은 자연어이므로 lead 가 `Agent` 도구를 직접 호출하지 않습니다 (직접 호출 = sub-agent 회귀). teammate 자신은 spawn 시 Task·SendMessage 가 자동 제공됩니다. (`TeamCreate`/`TeamDelete` 는 v2.1.178 에서 제거됐습니다.)
+
+**4A-1. 팀 컨텍스트 (자동 — 별도 생성 호출 없음)**
+
+> v2.1.178 부터 `TeamCreate`/`TeamDelete` 도구는 제거됐습니다. 팀은 **현재 세션에서 자동 파생**되며, 첫 background teammate 를 spawn 하는 순간 lead(= 메인 세션) 중심으로 구성됩니다. 별도 생성 호출이 필요 없습니다 (`team_name` 파라미터는 Agent tool 에 남아있으나 accepted-but-ignored — 전달해도 무시됩니다).
+
+lead 는 현재 메인 세션입니다. 공유 task list(`TaskCreate`/`TaskUpdate`)와 메일박스(`SendMessage`)가 팀 통신 채널입니다.
 
 **4A-2. Task list 작성**
 
@@ -152,48 +157,31 @@ FOR each row in "Agent Teams 구성":
 
 작업 의존성이 있으면 (§ 5 작업 의존성 다이어그램 참조) `TaskUpdate({ taskId, addBlockedBy: [...] })` 로 DAG 구성.
 
-**4A-3. Teammate spawn + pre-assign**
+**4A-3. Teammate spawn (자연어 — 직접 Agent 도구 호출 금지)**
 
-각 슬라이스마다 (a) Agent spawn → (b) lead 가 즉시 TaskUpdate 로 owner 지정 (self-claim race 방지):
+lead 는 `Agent({...})` 를 직접 호출하지 않습니다. § 4A-2 에서 만든 task 들을 바탕으로, 각 slice 를 1 teammate 로 **자연어 spawn 지시**로 일괄 요청합니다 (런타임이 팀 컨텍스트로 띄우고 사용자 승인을 거침). 예:
 
 ```
-FOR each row in "Agent Teams 구성":
-  # (a) teammate spawn
-  Agent({
-    description: "<역할명> teammate",
-    subagent_type: "<§ 5 에 명시된 agent>",     // 예: stdback-cqrs-refactorer. 없으면 "general-purpose"
-    team_name: "STD-<KEY>",
-    name: "<slug-역할명>",                        // 예: "slice-STD-163". 이 name 이 TaskUpdate(owner) 값
-    prompt: """
-      당신은 팀 `STD-<KEY>` 의 `<slug-역할명>` 입니다.
+"<이슈 제목> 을 N 개 slice 로 병렬 구현하기 위해 teammate N 명을 spawn한다.
+ 각 teammate 는 자기 task 를 TaskList 로 찾아 self-claim(in_progress → 완료 시 completed)하고,
+ 다른 teammate 와의 contract(interface/method signature) 합의는 SendMessage 로 직접 한다 (lead 우회 X).
 
-      ## 역할
-      <스택 페르소나> — <역할 한줄 요약>
+ - <slug-역할1> (<§5 subagent-type 또는 일반>): 담당 <파일/모듈>.
+     prompt: '당신은 <slug-역할1>, <스택 페르소나>. 담당 파일 <...> 만 수정(다른 teammate 파일 read-only).
+              dev-guide: docs/STD-<KEY>-dev-guide.md § 3 Phase <N> (+ slice dev-guide docs/STD-<KEY>-<SUB>-dev-guide.md).
+              단위 테스트 GREEN 확인. 통합 빌드/Codex 는 lead 책임이라 시도 X.'
+ - <slug-역할2> (...): ...
 
-      ## 자기 task
-      `TaskList` 호출 → owner 가 `<slug-역할명>` 인 task 1건 → `TaskGet` 으로 상세 확인 → `TaskUpdate({ taskId, status: "in_progress" })` 로 시작.
-
-      ## 작업 규칙
-      - 자기 task description 의 "담당 파일" 만 수정. 다른 teammate 파일은 read-only.
-      - 다른 teammate 와 contract (interface/method signature) 합의가 필요하면 SendMessage 로 직접 협의 — lead 우회 X.
-      - 단위 테스트 작성 + GREEN 확인.
-      - 완료 시 `TaskUpdate({ taskId, status: "completed" })` + idle. 통합 빌드/Codex review 는 lead 책임이므로 시도 X.
-
-      ## 프로젝트 컨텍스트
-      - CLAUDE.md 자동 로드됨 (working dir 기준)
-      - dev-guide: `docs/STD-<KEY>-dev-guide.md`
-      - slice dev-guide (있으면): `docs/STD-<KEY>-<SUB>-dev-guide.md`
-    """,
-    mode: "default"   // dev-guide § 5 에 "plan approval 필수" 명시 시 "plan"
-  })
-
-  # (b) 즉시 task assign — self-claim race 방지
-  TaskUpdate({ taskId: "<해당 slice 의 task id>", owner: "<slug-역할명>" })
+ plan approval 이 필요한 slice 는 plan 모드로 spawn (lead 가 approve/reject)."
 ```
 
-> **왜 self-claim 대신 pre-assign**: 공식 문서가 둘 다 허용하지만, lead 가 spawn 직후 `TaskUpdate(owner)` 로 명시 assign 하면 (i) teammate 가 자기 task 를 찾을 때 owner 매칭으로 결정론적, (ii) DAG 의 blocked task 가 잘못 claim 되는 일 없음, (iii) 디버깅 시 lead 시점에서 누가 무엇을 받았는지 명확.
+- **subagent 정의 재사용**: role 을 `stdback-cqrs-refactorer` 같은 subagent-type 으로 지정하려면 이름으로 언급("stdback-cqrs-refactorer agent type 으로 spawn"). 그 정의의 `tools`/`model` 을 따르되 **Task·SendMessage 는 항상 사용 가능**(공식). § 5 에 없으면 일반 teammate.
+- **task 배정**: lead 는 § 4A-2 의 task 에 `TaskUpdate({ taskId, owner: "<slug-역할명>" })` 로 명시 assign 하거나 teammate self-claim 에 맡깁니다. pre-assign 이 DAG·디버깅에 결정론적이라 권장 — spawn 승인 직후 owner 지정.
+- **사용자 승인**: teammate spawn 은 사용자 승인을 거칩니다(공식: "Claude won't spawn teammates without your approval"). 승인 후 팀 형성 + 각자 self-claim 시작.
 
-> `mode: "plan"` 사용 시 teammate 가 plan 제출 → lead 가 검토 후 approve/reject. lead 의 approve 기준은 dev-guide § 5 의 "파일 충돌 방지" + "완료 기준" 충족 여부.
+> **왜 자연어 spawn**: v2.1.178+ 공식 메커니즘이 자연어다. lead 가 `Agent({ name, run_in_background })` 를 직접 호출하면 **sub-agent 로 떨어져** Task self-claim·팀 메일박스가 동작하지 않는다(⚠️ 박스 + 실측 확인). teammate 의 역할 지시는 자연어 spawn 안의 prompt 텍스트로 담는다.
+
+> `plan` 모드 spawn 시 teammate 가 plan 제출 → lead 가 검토 후 approve/reject. approve 기준은 dev-guide § 5 의 "파일 충돌 방지" + "완료 기준" 충족 여부.
 
 **4A-4. 진행 모니터링 (lead 의 의무)**
 
@@ -230,15 +218,43 @@ Step 7 빌드 통과 + Step 8 Jira 코멘트 직전에:
 ```
 1. 빌드 실패 시 (Step 7) → 책임 teammate 식별 → SendMessage({ to: "<name>", message: "<수정 지시>" })
    teammate idle 상태에서 메시지 받으면 깨어남 → fix → 완료 → 다시 Step 7 빌드
-2. 빌드 통과 시 → 각 teammate 종료:
-   FOR each teammate:
-     SendMessage({ to: "<name>", message: { type: "shutdown_request" } })
-   teammate 가 reject 하면 (드물게 발생) — 사용자에게 reject 사유 보고 후 진행 여부 확인
-3. 모든 teammate idle/종료 확인 후 사용자에게 cleanup 안내:
-   "팀 정리하려면 lead 채팅에 'clean up the team' 이라고 입력하세요"
+2. 빌드 통과 시 → teammate 는 자기 task `completed` 후 idle. 명시 종료는 선택사항:
+   - 제거된 건 `TeamDelete` 뿐 — in-process 팀의 shared 디렉토리는 세션 종료 시 자동 정리되므로 teardown 단계가 불필요하다.
+   - `shutdown_request` 는 **유효**하다: 사용자가 "teammate 종료해줘"라고 요청하면 lead 가 이름으로 shutdown 을 보내고 teammate 가 approve/reject 한다(공식 "Shut down teammates"). 굳이 안 보내도 세션 종료 시 정리된다.
+3. 별도 cleanup 입력을 사용자에게 요구하지 않습니다 — 자동 정리에 의존.
 ```
 
-> **왜 lead 자동 cleanup 안 하나**: 공식 문서 — "Always use the lead to clean up. Teammates should not run cleanup". cleanup 호출자는 lead 가 맞지만 **트리거는 사용자 명시 입력**. 자동 cleanup 은 active teammate 잔존 시 resource 불일치 위험.
+> **종료 모델 (v2.1.178+)**: in-process teammate 는 task `completed` → idle. shared 디렉토리는 세션 종료 시 자동 정리(제거된 도구는 `TeamDelete` 뿐 — `shutdown_request` 는 유효). `/resume`·`/rewind` 는 in-process teammate 를 복원하지 못하므로(공식 limitation), 중단 후 재개 시 lead 가 새로 spawn 한다. 빌드 실패 fix 는 세션 내 `SendMessage` 로 idle teammate 를 깨워 처리한다.
+
+### 4A-FB. Sub-agent fan-out (Agent Teams 미지원 환경 폴백)
+
+> § 4A 진입 가드에서 환경이 Agent Teams 미지원(SDK/통합앱/CI/비대화형)으로 판명됐는데 병렬이 필요하면 이 모드. sub-agent 는 Task self-claim·팀 메일박스가 없으므로:
+> - **disjoint files 전제**: 각 slice 가 서로 다른 파일만 수정 (겹치면 마지막 write 가 이김 → 충돌)
+> - **contract 합의가 필요하면 이 모드 금지** → § 4B 순차 (sub-agent 끼리 협의 불가)
+
+절차:
+
+1. **Phase 0 scaffold** (공통 DTO/interface/migration) 를 lead 가 먼저 완료 — sub-agent 끼리 합의 못 하므로 공통 계약을 미리 박아둔다.
+2. **disjoint slice fan-out** — 한 메시지에서 sub-agent 를 동시 호출(병렬):
+
+```
+FOR each disjoint slice:
+  Agent({
+    description: "<역할명> slice 구현",
+    subagent_type: "<§ 5 agent 또는 general-purpose>",
+    prompt: """
+      <slice dev-guide 경로>. 담당 파일 <...> 만 수정 (다른 파일 read-only).
+      구현 + 단위 테스트 GREEN 확인. 통합 빌드/Codex 는 lead 책임.
+      완료 시 '수정 파일 목록 + 테스트 결과' 를 최종 메시지로 반환.
+    """
+  })
+  # run_in_background 미사용 — lead 가 각 sub-agent 의 최종 결과를 직접 회수 (단방향)
+```
+
+3. lead 가 모든 sub-agent 결과를 취합 → Step 7 통합 빌드 1회 → Step 6 Codex.
+
+> **동시 쓰기 충돌이 우려되면** 각 sub-agent 에 `isolation: "worktree"` 를 줘서 격리하고, lead 가 각 worktree 변경을 메인 워킹트리에 머지한다(머지 부담 발생). disjoint files 가 확실하면 단일 워킹트리로 충분.
+> **§ 4A 와 차이**: sub-agent 는 결과만 단방향 회수 — self-claim/SendMessage 협업 없음. 그래서 contract 합의가 필요한 작업엔 부적합(→ § 4B).
 
 ### 4B. 순차 실행 모드
 
@@ -445,7 +461,7 @@ git diff --stat
 - CLAUDE.md에 프로젝트별 빌드/린트 명령이 있으면 우선 사용
 - **Codex adversarial review (Step 6)는 Codex 설치 시 필수** — 루프/병렬/단일 모드 무관, 시간 압박 시에도 스킵 금지. 미설치 시에만 명시 출력 후 진행
 - **Agent Teams 트리거 (§ 4A)**: dev-guide 의 `## 5. 병렬 작업 가이드` + "Agent Teams 구성" 표 자동 감지. 사용자 추가 확인 X. 미설정 (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 부재) 시 § 4B 순차 모드로 폴백
-- **Agent Teams 진입은 자연어 묘사가 아닌 도구 시퀀스**: § 4A-0 ToolSearch → 4A-1 TeamCreate → 4A-2 TaskCreate × N → 4A-3 Agent(team_name,name) × N → 4A-4 모니터링 → 4A-5 SendMessage(shutdown_request). "팀 만들어줘" 식 자연어로 위임 금지 — Lead 가 직접 호출
+- **Agent Teams 진입(v2.1.178+)**: lead 가 **구체적 자연어로 teammate spawn 요청**(역할·담당파일·prompt 명시, 사용자 승인) → 팀 자동 형성 → teammate 가 공유 Task self-claim + SendMessage 협업. lead 가 `Agent({...})` 를 직접 도구 호출해 결과만 회수하면 sub-agent 회귀(§ 4A ⚠️ 박스). 단계: 4A-0 ToolSearch(Task*/SendMessage, lead) → 4A-2 TaskCreate × N → 4A-3 자연어 spawn × N + TaskUpdate(owner) → 4A-4 모니터링(SendMessage) → 4A-7 자연 종료(자동 정리). "팀 만들어줘" 식 **막연한** 위임은 금지 — slice·담당·prompt 를 명시
 - **`--subtasks` 모드의 worktree 분기 제거 (2026-05-13)**: ADR-070 의 manual worktree 패턴 → Agent Teams 의 disjoint-files 패턴으로 대체. 자세히는 § "--subtasks Mode" 의 supersession 노트
 
 ## --subtasks Mode (Agent Teams 통합)
@@ -454,16 +470,16 @@ git diff --stat
 
 1. **Phase 0 (scaffold)** — 부모 dev-guide § 3 Phase 0 (DTO/interface/migration) 를 lead 가 직접 수행. teammate spawn 전에 끝내야 slice 들이 공통 contract 위에서 동작.
 2. **Phase 1 (slice fan-out)** — § 4A 절차 그대로:
-   - `TeamCreate({ team_name: "STD-<PARENT>", agent_type: "lead" })`
-   - 각 slice (`STD-<SUB>`) 마다 `TaskCreate` + `Agent({ team_name, name: "slice-STD-<SUB>", ... })`
-   - 각 teammate prompt 에 slice dev-guide 경로 명시: `docs/STD-<PARENT>-STD-<SUB>-dev-guide.md`
+   - 각 slice (`STD-<SUB>`) 마다 lead 가 `TaskCreate` → **자연어로 teammate spawn 요청**(사용자 승인) → `TaskUpdate({ owner })`. lead 가 `Agent()` 를 직접 호출하지 않음 (= sub-agent 회귀, § 4A)
+   - 별도 팀 생성 호출 없음 — 팀은 첫 spawn 시 세션 자동 파생 (v2.1.178 에서 `TeamCreate` 제거)
+   - 각 teammate spawn prompt 에 slice dev-guide 경로 명시: `docs/STD-<PARENT>-STD-<SUB>-dev-guide.md`
 3. **slice 별 댓글** — teammate 가 자기 task 를 `completed` 로 마킹할 때, lead 가 하위 이슈에 1~3 줄 댓글 추가 (Jira tool 호출은 lead 가):
    ```
    🔨 구현 완료. 단위 테스트 N PASS.
    통합 검증 + harness verdict 은 부모 `<PARENT-KEY>` 댓글 참조.
    ```
 4. **Phase 2 (통합 빌드)** — 모든 slice teammate `completed` 이후 lead 가 단일 빌드 1회. 하위 댓글에 재인용 X.
-5. **Teardown** — § 4A-5 절차 (SendMessage shutdown_request → 사용자에게 "clean up the team" 안내).
+5. **Teardown** — § 4A-7 절차 (teammate 자연 종료 + 세션 종료 시 자동 정리. 명시적 shutdown/cleanup 호출 불필요).
 
 > **Worktree 미사용 — ADR-070 supersession**: 종전 ADR-070 은 `git worktree add` + `Agent({ cwd: <worktree path> })` 패턴이었으나, Agent Teams 도입 후 **단일 working tree + disjoint files + shared task list** 패턴으로 대체. 이유:
 > - Teammate 끼리 SendMessage 직접 통신 가능 → contract 합의가 lead 우회 가능 (worktree 격리 모델에서는 불가)

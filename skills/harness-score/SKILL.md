@@ -1,12 +1,6 @@
 ---
 name: harness-score
-description: "Post-merge VALID/INVALID 채점 — 머지 후 7일 이상 경과한 이슈의 aggregate-verdict.md에 사후 평가를 기록합니다. Harness의 catch rate/false positive rate 측정에 사용. 자기 채점 편향 방지를 위해 별도 세션에서 외부 증거와 함께 수행."
-triggers:
-  - "/harness-score"
-  - "harness score"
-  - "사후 평가"
-  - "post-merge scoring"
-  - "catch rate 측정"
+description: "Post-merge VALID/INVALID 채점 — 머지 후 7일 이상 경과한 이슈의 aggregate-verdict.md에 사후 평가를 기록합니다. Harness의 catch rate/false positive rate 측정에 사용. 자기 채점 편향 방지를 위해 별도 세션에서 외부 증거와 함께 수행. '/harness-score', 'harness score', '사후 평가', 'post-merge scoring', 'catch rate 측정' 요청 시 사용."
 ---
 
 # /harness-score — Post-merge VALID/INVALID 채점 에이전트

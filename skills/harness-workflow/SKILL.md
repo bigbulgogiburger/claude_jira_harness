@@ -1,11 +1,6 @@
 ---
 name: harness-workflow
-description: "Jira 스킬과 Harness를 자동 시퀀싱하는 통합 오케스트레이터. /jira-start부터 /jira-complete까지 + 중간 Sprint Contract + 리뷰 Inner Loop를 한 번에 실행합니다."
-triggers:
-  - "/harness-workflow"
-  - "harness workflow"
-  - "전체 워크플로우"
-  - "이슈 전체 진행"
+description: "Jira 스킬과 Harness를 자동 시퀀싱하는 통합 오케스트레이터. /jira-start부터 /jira-complete까지 + 중간 Sprint Contract + 리뷰 Inner Loop를 한 번에 실행합니다. '/harness-workflow', 'harness workflow', '전체 워크플로우', '이슈 전체 진행' 요청 시 사용."
 ---
 
 # /harness-workflow — 통합 오케스트레이터 (Level 4)
@@ -26,7 +21,7 @@ triggers:
 
 1. **입력에 부모 키가 2개 이상인가?** (공백 / 슬래시 / 쉼표로 구분된 별개 부모 — 같은 epic 의 형제 작업 포함)
    → **YES → 즉시 `parallel-fanout.md` 로 분기**. 본 SKILL.md 의 단일-인스턴스 시퀀스는 적용 금지.
-   - `Read('~/.claude/skills/harness-workflow/parallel-fanout.md')` 먼저 호출 + §0 사전조건 10개 검증 + §3 충돌 매트릭스 + §4 옵션 A/B/C/D 사용자 승인 → §5 worktree 생성 + Tier-1 TeamCreate + Agent spawn × N
+   - `Read('~/.claude/skills/harness-workflow/parallel-fanout.md')` 먼저 호출 + §0 사전조건 10개 검증 + §3 충돌 매트릭스 + §4 옵션 A/B/C/D 사용자 승인 → §5 worktree 생성 + Tier-1 Agent spawn × N (worktree 격리, `TeamCreate` 없음)
    - 일반적인 misconception: "fan-out = `--subtasks` 만" ❌ — fan-out 은 **2-tier**. Tier-1 (다중 부모 worktree) + Tier-2 (단일 부모 하위 Agent Teams). `parallel-fanout.md` 가 SSoT.
 
 2. **입력에 부모 키가 1개 + `--subtasks` 플래그?**

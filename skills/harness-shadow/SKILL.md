@@ -1,12 +1,6 @@
 ---
 name: harness-shadow
-description: "Shadow run 프로토콜 — HARNESS_MODE=off로 baseline Claude만의 리뷰와 Harness full-run을 비교하여 counterfactual lift를 측정합니다. 5개 이슈 중 1개 권장 주기. Harness가 baseline을 능가하는지 경험적 증거 수집."
-triggers:
-  - "/harness-shadow"
-  - "harness shadow"
-  - "shadow run"
-  - "counterfactual lift"
-  - "baseline 비교"
+description: "Shadow run 프로토콜 — HARNESS_MODE=off로 baseline Claude만의 리뷰와 Harness full-run을 비교하여 counterfactual lift를 측정합니다. 5개 이슈 중 1개 권장 주기. Harness가 baseline을 능가하는지 경험적 증거 수집. '/harness-shadow', 'harness shadow', 'shadow run', 'counterfactual lift', 'baseline 비교' 요청 시 사용."
 ---
 
 # /harness-shadow — Counterfactual Lift 측정 프로토콜

@@ -1,11 +1,6 @@
 ---
 name: harness-resume
-description: "이전 세션의 체크포인트를 복원하여 작업을 이어갑니다. workflow-state.json과 checkpoint.md를 읽어 중단된 단계부터 재개합니다."
-triggers:
-  - "/harness-resume"
-  - "harness resume"
-  - "이어서 작업"
-  - "이전 작업 복원"
+description: "이전 세션의 체크포인트를 복원하여 작업을 이어갑니다. workflow-state.json과 checkpoint.md를 읽어 중단된 단계부터 재개합니다. '/harness-resume', 'harness resume', '이어서 작업', '이전 작업 복원' 요청 시 사용."
 ---
 
 # /harness-resume — 체크포인트 복원

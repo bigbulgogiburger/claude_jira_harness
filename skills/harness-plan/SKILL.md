@@ -1,11 +1,6 @@
 ---
 name: harness-plan
-description: "Jira 개발 가이드(dev-guide)를 읽고 Sprint Contract를 보충 생성합니다. /jira-plan 이후에 실행하여 DoD, Verify Targets, Out of Scope를 명시화합니다."
-triggers:
-  - "/harness-plan"
-  - "Sprint Contract 만들어줘"
-  - "harness plan"
-  - "계획 보충"
+description: "Jira 개발 가이드(dev-guide)를 읽고 Sprint Contract를 보충 생성합니다. /jira-plan 이후에 실행하여 DoD, Verify Targets, Out of Scope를 명시화합니다. '/harness-plan', 'harness plan', 'Sprint Contract 만들어줘', '계획 보충' 요청 시 사용."
 ---
 
 # /harness-plan — Sprint Contract 보충 생성
@@ -67,7 +62,7 @@ dev-guide가 없으면 경고 출력 후 Jira MCP에서 이슈 본문을 직접 
 
 ### Step 3. 프로젝트 에이전트 호출 (선택)
 
-플래너/탐색 에이전트가 존재하면 Task tool로 위임하여 코드베이스 탐색을 격리한다. 에이전트 이름은 프로젝트 접두사 컨벤션을 따른다:
+플래너/탐색 에이전트가 존재하면 Agent tool로 위임하여 코드베이스 탐색을 격리한다. 에이전트 이름은 프로젝트 접두사 컨벤션을 따른다:
 
 - **app-ha-back**: `haback-explorer` (haiku)
 - **cs-back**: `cs-explorer` 또는 `cs-planner`

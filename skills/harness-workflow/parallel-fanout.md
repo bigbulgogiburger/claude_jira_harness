@@ -63,9 +63,9 @@ Tier-1 (Outer)  ── 사용자가 직접 봄
 Tier-2 (Inner, 각 worktree 안)  ── ADR-070 표준
 ┌────────────────────────────────────────────────────────────────────┐
 │  workflow-<KEY> 가 Phase 5 (jira-execute) 에 들어가면            │
-│   TeamCreate({team_name: "<KEY>"})                               │
 │   FOR each slice (3~4 하위태스크):                                 │
-│     Agent({team_name: "<KEY>", name: "slice-<SUB-KEY>", ...})      │
+│     TaskCreate + Agent({name:"slice-<SUB-KEY>", run_in_background:true})│
+│   (별도 TeamCreate 없음 — 팀 세션 자동 파생, v2.1.178+)           │
 │   teammate 들이 단일 worktree 안에서 파일 owned 분할 + 통합 빌드는 lead│
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -175,17 +175,13 @@ git -C $ROOT worktree list
 
 각 worktree 는 **별도 working dir** 이고 `.claude/` 도 별도 복제됨. 단, `.claude/runtime/`, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.local.json` 은 git tracked → worktree 마다 동일 복제 → hook 실측 동작 동일 → **자연스럽게 worktree 격리**.
 
-### 5-2. Tier-1 Team 생성
+### 5-2. Tier-1 협업 도구 로드 (팀 생성 호출 없음)
 
 ```
-ToolSearch({ query: "select:TeamCreate,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
-
-TeamCreate({
-  team_name: "stdcs-w6-parallel",
-  agent_type: "orchestrator",
-  description: "STD-214~218 다중 부모 병렬 워크플로 — wave 2-2-1 또는 full 5 동시"
-})
+ToolSearch({ query: "select:TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
 ```
+
+> v2.1.178 부터 `TeamCreate`/`TeamDelete` 도구는 제거됐습니다. 팀(`stdcs-w6-parallel` 같은 명시 이름)을 만들 필요 없이, **메인 세션이 곧 orchestrator(lead)** 이고 첫 `Agent({name, run_in_background:true})` spawn 시 팀이 세션에서 자동 파생됩니다 (`team_name` 은 전달해도 무시됨). (interactive TUI 기준 — SDK/통합앱 환경은 § B 의 환경 분기: sub-agent + worktree + SendMessage 보고를 따른다.)
 
 ### 5-3. Tier-1 Task 작성 + Agent spawn
 
@@ -228,9 +224,9 @@ FOR each key in $KEYS:   # key = 풀 이슈 키 (예: STD-214)
   Agent({
     description: "<key> 워크플로 실행",
     subagent_type: "general-purpose",
-    team_name: "stdcs-w6-parallel",
     name: "workflow-<key>",
-    isolation: "worktree",                         # ★ 핵심 — claude 가 자동으로 worktree 컨텍스트 잡음
+    run_in_background: true,                        # background teammate — orchestrator 와 SendMessage 로 통신
+    isolation: "worktree",                         # ★ 핵심 — claude 가 자동으로 worktree 컨텍스트 잡음 (Tier-1 은 부모별 격리가 정당)
     prompt: """
       당신은 팀 stdcs-w6-parallel 의 workflow-<key> 입니다.
 
@@ -282,7 +278,7 @@ FOR each key in $KEYS:   # key = 풀 이슈 키 (예: STD-214)
 | **3. jira-plan §6 ingest forecast** | **`docs/INDEX.md`, `docs/LOG.md`** | **단일 파일 공유** | ⚠️ **mutex 필요** — § 6-A 참조 |
 | **4. harness-plan** | `.claude/runtime/sprint-contract/<KEY>.md` | 부모별 격리 (worktree 별 → 5 부) | OK |
 | **5. 사용자 승인** | conversation stdout | 글로벌 (사용자 1명) | ⚠️ § 9 직렬화 참조 |
-| **5. jira-execute** (Tier-2 Agent Teams) | 코드 파일 (slice 분할), `~/.claude/teams/<KEY>/` | 부모별 격리 (team_name 다름) | OK |
+| **5. jira-execute** (Tier-2 Agent Teams) | 코드 파일 (slice 분할), 세션 공유 task list | 부모별 격리 (worktree/세션 분리) | OK |
 | **5. harness-review inner loop** | `.claude/runtime/aggregate-verdict.md` (단일 파일 default) | ⚠️ worktree 별 격리되지만 **subagent 폭주 위험** | § 6-B 참조 |
 | **5. compile-check hook** (`PostToolUse` Edit/Write) | `.claude/runtime/changed-files.txt` | worktree 별 격리 (hook 이 `pwd` 기준) | OK |
 | **6. jira-test** | `./gradlew test`, `npm test`, **dev MySQL Flyway** | gradle/.gradle 격리, npm 격리, **MySQL 단일** | ⚠️ Flyway 직렬화 — § 7 참조 |
@@ -494,10 +490,9 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 
 ### 14-2. Tier-1 spawn
 
-- [ ] ToolSearch 로 TeamCreate/Task*/SendMessage/Agent schema 로드
-- [ ] TeamCreate "stdcs-w6-parallel"
+- [ ] ToolSearch 로 Task*/SendMessage schema 로드 (TeamCreate 없음 — v2.1.178+)
 - [ ] TaskCreate 5 개 + DAG 의존성 (옵션 A: 217/216/218 blockedBy 215)
-- [ ] Agent spawn 5 개 (working dir 명시 + 프롬프트 § 5-3)
+- [ ] Agent spawn 5 개 (run_in_background:true + working dir 명시 + 프롬프트 § 5-3)
 - [ ] TaskUpdate(owner) 5 개
 
 ### 14-3. Runtime 모니터링
@@ -514,8 +509,8 @@ SKILL.md Phase 4 (사용자 승인) 에서 5 인스턴스가 동시에 sprint co
 - [ ] Flyway 통합 적용 (V14~V18)
 - [ ] organize-claude-md 1회 통합 실행 (§ 6-C)
 - [ ] wiki-lint 1회 (corpus-scoped)
-- [ ] `~/.claude/teams/stdcs-w6-parallel/` 삭제 (TeamDelete)
-- [ ] `~/.claude/teams/STD-214 ~ 218/` 5개 삭제 (각 Tier-2 lead 가 SKILL.md 정리 단계에서 자동)
+- [ ] Tier-1 teammate 자연 종료 확인 (`TeamDelete` 제거됨 — 세션 종료 시 자동 정리, v2.1.178+)
+- [ ] Tier-2 teammate 도 동일 — 자기 task completed 후 idle, 세션 정리에 의존
 - [ ] worktree 5 개 삭제: `git worktree remove .claude/worktrees/<KEY>` × 5
 - [ ] CLAUDE.md `Last Updated:` 갱신 (5 이슈 closure 요약)
 - [ ] CHANGELOG.md append (5 이슈 묶음)
@@ -567,16 +562,22 @@ foreach ($k in $KEYS) {
 
 ### B. Agent Teams API (Tier-1)
 
-> ⚠️ **Sub-agent 회귀 안티패턴 차단** — 아래 시퀀스가 진짜 Agent Teams. `Agent({ subagent_type:"general-purpose", isolation:"worktree" })` 단독 호출 (team_name / SendMessage 없음) 은 **sub-agent + 워크트리 격리** 이지 Agent Teams 가 아님. 이름이 비슷해 자주 혼동. 호출 직전 자가검증: "내 시퀀스에 `TeamCreate` + `team_name` 파라미터 + `SendMessage` 가 다 들어있는가?" 셋 중 하나라도 빠지면 sub-agent 모드. 자세한 차이 표는 `jira-execute/SKILL.md § 4A` 의 ⚠️ 박스 참조.
+> 🧭 **환경 분기**: Tier-1 은 각 부모를 worktree 에 격리해 독립 워크플로를 돌리는 **격리 병렬**이다. 부모 간 협업이 거의 없어(각자 독립 워크플로) 환경에 따라 갈린다:
+> - **interactive `claude` 터미널(TUI)**: Agent Teams 자연어 spawn (teammate self-claim + SendMessage). jira-execute § 4A 방식.
+> - **SDK/통합앱/CI**: 아래 명시 `Agent({isolation:"worktree"})` sub-agent fan-out — Task self-claim 은 없지만 worktree 격리 + `SendMessage` 보고(merge-ready 등)는 동작한다. 이 환경의 **주 경로**.
+>
+> Tier-1 은 협업이 적어 sub-agent + worktree 로도 충분하다(아래 명시 호출). Tier-2 하위 fan-out 은 jira-execute § 4A / § 4A-FB 의 환경 분기를 그대로 따른다.
+
+> ⚠️ **회귀 차단** — 어느 환경이든 진짜 회귀는 orchestrator ↔ agent 의 `SendMessage` 프로토콜(§ C: merge-ready / codex-slot-request 등)이 끊긴 채 `Agent() × N` 결과만 단방향 회수하는 것이다. interactive 면 teammate self-claim 까지, SDK 면 최소 `SendMessage` 보고는 흘러야 한다(`TeamCreate`/`team_name`/`TeamDelete` 는 v2.1.178 에서 제거·무시되므로 회귀 신호가 아니다). 호출 직전 자가검증: "§ C 메시지(merge-ready 등)가 orchestrator 와 오가는가?" 자세한 차이 표는 `jira-execute/SKILL.md § 4A` 의 ⚠️ 박스 참조.
 
 ```
-ToolSearch({ query: "select:TeamCreate,TeamDelete,TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
-TeamCreate({ team_name: "stdcs-w6-parallel", agent_type: "orchestrator", description: "..." })
+ToolSearch({ query: "select:TaskCreate,TaskList,TaskUpdate,TaskGet,SendMessage", max_results: 10 })
+# (TeamCreate 없음 — 팀은 세션 자동 파생. 메인 세션 = orchestrator)
 TaskCreate({ subject: "workflow-STD-214", description: "...", activeForm: "..." })
-Agent({ team_name: "stdcs-w6-parallel", name: "workflow-STD-214", subagent_type: "general-purpose", prompt: "...", description: "..." })
+Agent({ name: "workflow-STD-214", run_in_background: true, subagent_type: "general-purpose", isolation: "worktree", prompt: "...", description: "..." })
 TaskUpdate({ taskId: "1", owner: "workflow-STD-214" })
 SendMessage({ to: "workflow-STD-214", message: "merge-ack <sha>", summary: "merge ack" })
-TeamDelete({})  # 작업 끝, 모두 idle 후
+# 작업 끝: teammate idle → 세션 종료 시 자동 정리 (TeamDelete 제거됨)
 ```
 
 ### C. 메시지 프로토콜 (orchestrator ↔ workflow-agent)
@@ -610,6 +611,7 @@ SendMessage({ to: "workflow-STD-216", message: {type: "shutdown_request", reason
 ## 17. 변경 이력
 
 - **2026-05-18**: 초안 — STD-214~218 W5/W6 묶음 5 이슈 동시 실행 시 적용. SKILL.md (단일 부모 + Tier-2 fan-out) 위에 Tier-1 worktree 격리 + orchestrator 직렬화 패턴 추가.
+- **2026-06-29**: Agent Teams 도구 시퀀스를 v2.1.178+ 현행으로 정정 — `TeamCreate`/`TeamDelete` 제거·`team_name` accepted-but-ignored 반영. Tier-1/Tier-2 모두 `Agent({run_in_background:true})` + 공유 Task + `SendMessage`. 회귀 안티패턴 박스를 "단방향 sub-agent" 기준으로 방향 전환.
 
 ---
 

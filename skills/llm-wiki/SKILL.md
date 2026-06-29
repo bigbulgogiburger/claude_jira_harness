@@ -15,19 +15,6 @@ description: |
   - "이 음성/녹음/트랜스크립트 wiki로"
 
   모드는 사용자 입력에서 자동 추론 (ingest / query / lint). 명시 플래그는 없음.
-
-triggers:
-  - "/llm-wiki"
-  - "위키에 넣어줘"
-  - "위키에 추가"
-  - "지식 베이스"
-  - "knowledge base"
-  - "노트로 저장"
-  - "정리해서 기록"
-  - "내 위키"
-  - "내 노트"
-  - "위키 검토"
-  - "wiki lint"
 ---
 
 # /llm-wiki — Karpathy LLM Wiki (범용)

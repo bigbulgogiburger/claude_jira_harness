@@ -244,7 +244,7 @@ UPDATE ...
 
 ### Agent Teams 구성 (권장)
 
-> ⚠️ **이 표를 작성하면 jira-execute § 4A 가 자동으로 진입** — `TeamCreate` + `Agent({team_name, name})` + `SendMessage` 도구 시퀀스가 강제됩니다. `Agent({isolation:"worktree"})` sub-agent 패턴으로 대체 불가 (이름이 비슷해 자주 혼동되지만 다른 메커니즘). 진짜 협업이 필요 없는 disjoint fan-out 이면 § 5 섹션 자체를 작성하지 말고 Phase 를 순차 설계하세요. 자세한 안티패턴 차단은 `jira-execute/SKILL.md § 4A` 의 ⚠️ Sub-agent 회귀 안티패턴 박스 참조.
+> ⚠️ **이 표를 작성하면 jira-execute § 4A 가 자동으로 진입** — lead 가 `TaskCreate × N` 후 **자연어로 teammate spawn**(사용자 승인) → teammate 가 공유 Task self-claim + `SendMessage` 협업 (v2.1.178+ : `TeamCreate`/`team_name` 없이 팀 자동 형성. lead 가 `Agent()` 를 직접 도구 호출하면 sub-agent 로 회귀). **단 self-claim 협업은 interactive `claude` 터미널 전제 — SDK/통합앱/CI 환경이면 jira-execute § 4A 진입 가드가 § 4A-FB(sub-agent fan-out)로 분기한다.** 진짜 협업(teammate 간 contract 합의)이 필요 없는 disjoint fan-out 이면 § 5 섹션 자체를 작성하지 말고 Phase 를 순차 설계하세요. 자세한 패턴은 `jira-execute/SKILL.md § 4A` 의 ⚠️ 안티패턴 박스 참조.
 
 | 역할 | 담당 범위 | subagent 타입 |
 |------|----------|---------------|

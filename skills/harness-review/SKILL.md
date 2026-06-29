@@ -1,11 +1,6 @@
 ---
 name: harness-review
-description: "코드 변경 사항에 대해 프로젝트별 전문 에이전트를 병렬 fan-out으로 리뷰하고 종합 verdict(PASS/ITERATE/ESCALATE)를 생성합니다."
-triggers:
-  - "/harness-review"
-  - "harness review"
-  - "harness 리뷰"
-  - "품질 리뷰"
+description: "코드 변경 사항에 대해 프로젝트별 전문 에이전트를 병렬 fan-out으로 리뷰하고 종합 verdict(PASS/ITERATE/ESCALATE)를 생성합니다. '/harness-review', 'harness review', 'harness 리뷰', '품질 리뷰' 요청 시 사용."
 ---
 
 # /harness-review — Fan-out 리뷰 + Aggregate Verdict
@@ -96,7 +91,7 @@ cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 �
 
 ### Step 3. 에이전트 병렬 Fan-out
 
-에이전트가 프로젝트에 **존재하면** Task tool로 병렬 호출 (2개씩 batching).
+에이전트가 프로젝트에 **존재하면** Agent tool로 병렬 호출 — 한 메시지에서 여러 Agent 를 동시 spawn (2개씩 batching). 도메인 수가 많거나 반복적이면 `Workflow` 툴의 `parallel()` 로 fan-out 해도 된다 (각 도메인 결과를 barrier 로 모아 verdict 합성).
 에이전트가 **존재하지 않으면** 해당 축은 스킵하고 메시지 출력.
 
 각 에이전트에 전달할 컨텍스트:

@@ -31,7 +31,7 @@
 | **jira-ingest** (forecast) | `INDEX.md` 에 부모 row 추가 (key=`<KEY>`, status=planned) + `LOG.md` forecast 1줄 | 각 slice 의 INDEX row 추가 (key=`<KEY>::<sub>`, parent=`<KEY>`) + LOG slice forecast 1줄/슬라이스. **하위 Jira 댓글 없음** (wiki 자산은 로컬 파일이라 Jira 노이즈 회피) |
 | **jira-ingest** (closure) | INDEX row 갱신 (status=closed) + LOG closure + conditional cross-ref (ADR/sprint) | 각 slice INDEX row closed 갱신 + LOG slice closure. Conditional cross-ref 는 부모 한 번만 (slice 별 ADR ref 가 같으면 중복 회피) |
 | **harness-plan** | `sprint-contract/<KEY>.md` | (산출물은 부모 contract 에 slice 별 DoD 인라인 — 하위 댓글 불필요. 단 verdict 미반영 시 사용자 알림) |
-| **jira-execute** | Phase 0 scaffold + Agent Teams lead + 통합 빌드 + Phase 댓글 | **Agent Teams 모드** (worktree 미사용 — ADR-070 supersession). `TeamCreate({team_name:"STD-<PARENT>"})` + slice 마다 `TaskCreate` + `Agent({team_name, name:"slice-STD-<SUB>", ...})` spawn. teammate 가 자기 task `completed` 시 lead 가 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`"). ⚠️ `Agent({isolation:"worktree"})` 단독 호출 = sub-agent 회귀 (TeamCreate/team_name/SendMessage 셋 다 누락) — 자세한 안티패턴은 `jira-execute/SKILL.md § 4A` ⚠️ 박스 참조. |
+| **jira-execute** | Phase 0 scaffold + Agent Teams lead + 통합 빌드 + Phase 댓글 | **Agent Teams 모드** (interactive TUI 기준 — **SDK/CI 면 § 4A-FB sub-agent fan-out 으로 분기**; worktree 미사용 — ADR-070 supersession). slice 마다 lead 가 `TaskCreate` + **자연어로 teammate spawn**(사용자 승인) + `TaskUpdate(owner)`, teammate 가 self-claim (별도 팀 생성 없음 — v2.1.178 `TeamCreate` 제거·`team_name` 무시, 팀 자동 형성). teammate 가 자기 task `completed` 시 lead 가 하위에 1~3 줄 댓글 ("구현 완료 — 단위 테스트 N PASS, 자세히는 부모 `<KEY>`"). ⚠️ lead 가 `Agent()` 를 직접 도구 호출해 결과만 회수 = 단방향 sub-agent 회귀 — 자세한 안티패턴은 `jira-execute/SKILL.md § 4A` ⚠️ 박스 참조. |
 | **harness-review** | aggregate-verdict | slice 별 verdict 가 있으면 `aggregate-verdict/<KEY>-<sub>.md` 추가, 부모 verdict 에서 롤업 |
 | **jira-test** | 통합 빌드/테스트 + 댓글 | (생략 OK — 통합 검증은 부모 산출물. 단 slice 별 단위 테스트 결과를 부모 댓글에 인용) |
 | **jira-commit** | git commit + 댓글 | **모든 하위**에 commit SHA + 1줄 ("commit `<sha>` 에 통합 — 부모 `<KEY>` 댓글 참조") |
@@ -133,7 +133,8 @@ ELSE:
 
 ---
 
-**Last Updated**: 2026-05-14 (jira-ingest forecast/closure 행 + wiki-lint 행 추가 — Karpathy LLM Wiki 패턴 도입. wiki-lint 는 corpus-scoped 라 `--subtasks` N/A. § 7 에 wiki chain 자동 전파 규칙 추가)
+**Last Updated**: 2026-06-29 (jira-execute 행 — Agent Teams 도구 시퀀스를 v2.1.178+ 현행으로 정정: `TeamCreate`/`TeamDelete` 제거·`team_name` accepted-but-ignored 반영, `Agent({run_in_background:true})` + 공유 Task + `SendMessage` 패턴)
 
+**Previous**: 2026-05-14 (jira-ingest forecast/closure 행 + wiki-lint 행 추가 — Karpathy LLM Wiki 패턴 도입. wiki-lint 는 corpus-scoped 라 `--subtasks` N/A. § 7 에 wiki chain 자동 전파 규칙 추가)
 **Previous**: 2026-05-13 (jira-execute § "--subtasks Mode" 를 Agent Teams 기반으로 재작성 — worktree 4분기 패턴 supersede)
 **Previous**: 2026-05-07 (STD-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)

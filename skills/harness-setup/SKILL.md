@@ -1,21 +1,6 @@
 ---
 name: harness-setup
 description: "AI Agent Harness Engineering infrastructure auto-provisioner. Detects project stack (Spring Boot, Vue, React, etc.) and generates project-scoped agents, hooks, settings, CLAUDE.md rules, runtime directories, and metrics infrastructure. Idempotent — safely run on new or partially configured projects; only adds what's missing. Use this skill whenever: the user says 'harness setup', 'set up harness', 'configure harness', 'harness-setup', 'add harness to project', 'init harness', 'harness 설정', 'harness 구성', 'harness 초기화', 'harness 세팅', 'new project harness', 'upgrade harness', 'check harness status', 'harness check'. Also trigger when user asks to add agents, hooks, or quality gates to a project even without explicitly saying 'harness'."
-triggers:
-  - "/harness-setup"
-  - "harness setup"
-  - "harness 설정"
-  - "harness 구성"
-  - "harness 초기화"
-  - "harness 세팅"
-  - "프로젝트에 하네스 추가"
-  - "add harness"
-  - "init harness"
-  - "harness check"
-  - "harness upgrade"
-  - "에이전트 설정"
-  - "hook 설정"
-  - "품질 게이트 구성"
 ---
 
 # /harness-setup — Harness Engineering 자동 구성

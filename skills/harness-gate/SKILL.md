@@ -1,11 +1,6 @@
 ---
 name: harness-gate
-description: "커밋 전 최종 품질 게이트. aggregate-verdict 확인 + 프로젝트별 빌드/타입체크/린트를 종합 검증합니다."
-triggers:
-  - "/harness-gate"
-  - "harness gate"
-  - "품질 게이트"
-  - "커밋 전 검증"
+description: "커밋 전 최종 품질 게이트. aggregate-verdict 확인 + 프로젝트별 빌드/타입체크/린트를 종합 검증합니다. '/harness-gate', 'harness gate', '품질 게이트', '커밋 전 검증' 요청 시 사용 — 커밋 직전 최종 게이트(jira-commit 의 DoD 검증과 독립)."
 ---
 
 # /harness-gate — Pre-commit 품질 게이트
