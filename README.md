@@ -137,12 +137,13 @@ Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출
 | `/graphify` | 임의 input(코드·docs·논문·이미지) → knowledge graph → community detection → HTML + JSON + audit report. god node + BFS·DFS 쿼리. Obsidian 볼트·MCP 서버·Neo4j·GraphML·wiki·`--watch` 증분 갱신까지 내보내기 | 코드베이스/구조 질의 시 |
 | `/spring-boot-refactor` | Spring Boot DDD 강화, CQRS 적용, Service 계층 Read/Write 분리, 테스트 커버리지 개선, N+1 해결 자동 분석·제안 | Spring 리팩토링 시 |
 
-### 부가 스킬·명령어 (2개)
+### 부가 스킬·명령어 (3개)
 
-워크플로우 밖의 보조 도구. raster 이미지 생성과 CLAUDE.md 자동 정리.
+워크플로우 밖의 보조 도구. 플랜 스트레스 테스트, raster 이미지 생성, CLAUDE.md 자동 정리.
 
 | 항목 | 종류 | 역할 |
 | ---- | ---- | ---- |
+| `/grilling` + `/grill-me` | skill + command | 빌드 전 플랜·설계를 적대적으로 검증하는 인터뷰. 설계 트리를 가지별로 내려가며 의존성을 하나씩 해소하고, 질문마다 추천 답을 제시하되 **한 번에 하나씩** 묻는다. 공유 이해에 도달하기 전엔 플랜을 실행하지 않음. `/grill-me`는 `/grilling` 세션을 트리거하는 얇은 명령 (자동 호출 비활성) |
 | `imagegen` | skill | Codex CLI built-in `image_gen`을 메인 세션이 직접 오케스트레이션하는 thin orchestrator. 2~3개 질문으로 brief 합의 후 `codex exec` 백그라운드 호출 + Monitor 폴링, 결과는 `codex-image/`에 저장. **raster 전용** — SVG/벡터·코드 생성 금지 |
 | `/organize-claude-md` | skill + command | CLAUDE.md를 Lazy Loading 참조 구조 + 프레임워크 특화 템플릿 + Mermaid 아키텍처로 재구성. Monorepo 분기 + CHANGELOG 분리 + ADR 자동 생성 안내. Spring Boot / Vue / Nuxt / React / Next.js / Flutter / NestJS / FastAPI / Django / Go 특화 스캔 |
 
@@ -157,6 +158,7 @@ Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출
 
 ## 🆕 What's New
 
+- **`/grilling` + `/grill-me` 추가** — 빌드 전 플랜·설계를 한 번에 하나씩 적대적으로 파고드는 인터뷰 스킬. 공유 이해에 도달하기 전까지 실행을 막아 `jira-plan`·`harness-plan` 진입 전 요구사항을 벼린다.
 - **Agent Teams — v2.1.178+ 정합 + 환경 가드** — `TeamCreate`/`TeamDelete` 제거(v2.1.178)에 맞춰 `jira-execute §4A`·`parallel-fanout` 을 **자연어 teammate spawn** 으로 전환하고 **환경 분기 가드**를 도입: interactive `claude` 터미널은 Agent Teams(teammate self-claim + SendMessage), SDK/통합앱/CI 는 `§4A-FB` sub-agent fan-out 으로 폴백. 더불어 `harness-*` 의 비표준 `triggers:` frontmatter 필드를 제거하고 키워드를 `description` 에 흡수(자동 호출 신뢰도 회복).
 - **`/jira-plan` — Dynamic Workflow 모드** — 이슈 분석 시 Claude Code **v2.1.154+** 의 `Workflow` 툴로 단방향 fan-out + verify 엔진을 범용·조건부로 적용해 dev-guide 생성 흐름을 강화. 전면 대체가 아니라 plan PoC scope로 흡수하며, Workflow 미지원·구버전이면 인라인 모드로 자동 폴백 (자세히는 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조).
 - **`/harness-workflow` — 모드 결정 트리 + 멀티부모 병렬** — 단일/`--subtasks`/다중 부모를 자동 판별하는 결정 트리. `<KEY1> <KEY2> …`로 여러 부모를 git worktree 격리해 2-tier(Tier-1 워크플로 + Tier-2 teammate)로 동시 실행하며, 머지 순서·승인 게이트·Hook race를 orchestrator가 직렬화.
