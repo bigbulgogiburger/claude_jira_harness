@@ -5,7 +5,7 @@ description: "코드 변경 사항에 대해 프로젝트별 전문 에이전트
 
 # /harness-review — Fan-out 리뷰 + Aggregate Verdict
 
-> **직교 원칙**: 기존 quality-gate/jira-test 스킬과 독립 동작. 코드를 수정하지 않고 리포트만 생성.
+> **직교 원칙**: 빌드/테스트(harness-workflow gate 단계 — 구 jira-test 는 흡수·폐기)와 독립 동작. 코드를 수정하지 않고 리포트만 생성.
 > **참조**: ~/.claude/docs/HARNESS-JIRA-ORTHOGONAL-ARCHITECTURE.md
 
 ## ⛔ Guard — HARNESS_MODE 확인 (최우선)
@@ -120,10 +120,10 @@ cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 �
 결과를 `.claude/runtime/aggregate-verdict.md`에 저장 (**확장 스키마**):
 
 ```markdown
-# Aggregate Verdict — SURINP-XXX Phase N (Iteration M)
+# Aggregate Verdict — PROJ-XXX Phase N (Iteration M)
 
 <!-- ═══ Metadata (Tier 3 측정) ═══ -->
-- **Issue**: SURINP-XXX
+- **Issue**: PROJ-XXX
 - **Phase**: N
 - **Verdict**: PASS | ITERATE | ESCALATE
 - **Iteration**: M/3
@@ -172,7 +172,7 @@ cwd가 위 dispatch table의 어느 프로젝트와도 매칭되지 않으면 �
 
 ### Step 6. Shared State 갱신 (Read-Merge-Write 필수)
 
-**반드시 aggregate-verdict.md 저장 후 즉시 실행한다.** 이 단계를 건너뛰면 workflow-state와 verdict가 drift하여 게이트 무결성이 깨진다 (과거 SURINP-190에서 66분 drift 발생 사례).
+**반드시 aggregate-verdict.md 저장 후 즉시 실행한다.** 이 단계를 건너뛰면 workflow-state와 verdict가 drift하여 게이트 무결성이 깨진다 (과거 PROJ-190에서 66분 drift 발생 사례).
 
 1. **Read**: `.claude/runtime/workflow-state.json` 파일을 Read로 읽는다.
 2. **Merge**: 기존 필드를 보존하며 다음을 갱신:
@@ -206,9 +206,11 @@ verdict + Blocker 요약 출력.
 - 코드를 **절대 수정하지 않는다** (Read-only 원칙)
 - Wave 2(cs-front)는 Wave 1에 Blocker가 없을 때만 실행
 - 에이전트 출력은 **500 토큰 이하** 요약으로 수신 (큰 내용은 파일로)
-- 기존 quality-gate/jira-test와 **간섭하지 않는다** — 병렬 존재
+- 빌드/테스트(harness-workflow gate 단계)와 **간섭하지 않는다** — 리뷰는 코드 판정, gate 는 실행 검증
 
 ## --subtasks Mode
+
+> ⚠️ **2026-07-20 표면 폐지 (ADR-106)**: `--subtasks` 플래그 표면은 폐기 — 이 섹션은 하위이슈 **미러 규칙**(전이 동기화·짧은 댓글)으로만 유효하며, harness-workflow 가 플래그 없이 수행한다 (`_subtasks-convention.md` §7). slice 병렬 실행 단위는 Workflow 레인 (`harness-workflow/references/parallel-modes.md`).
 
 사용자가 `/harness-review <KEY> --subtasks` 로 호출 시:
 

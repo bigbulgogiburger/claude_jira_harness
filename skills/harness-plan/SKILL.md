@@ -44,7 +44,7 @@ description: "Jira 개발 가이드(dev-guide)를 읽고 Sprint Contract를 보�
 이슈 키를 다음 순서로 탐색:
 1. 사용자가 인자로 전달 (예: `/harness-plan PROJ-200`)
 2. `.claude/runtime/workflow-state.json`의 `issue_key`
-3. 현재 git 브랜치명에서 `[A-Z]+-[0-9]+` 패턴 추출 (예: `feature/PROJ-200-*` → `PROJ-200`). Jira project key는 프로젝트마다 다르므로(`SURINP`/`SCRUM`/`PROJ` 등) prefix를 고정하지 않는다.
+3. 현재 git 브랜치명에서 `[A-Z]+-[0-9]+` 패턴 추출 (예: `feature/PROJ-200-*` → `PROJ-200`). Jira project key는 프로젝트마다 다르므로(`PROJ`/`SCRUM`/`PROJ` 등) prefix를 고정하지 않는다.
 4. 없으면 사용자에게 요청
 
 ### Step 2. dev-guide 탐색
@@ -76,7 +76,7 @@ dev-guide가 없으면 경고 출력 후 Jira MCP에서 이슈 본문을 직접 
 dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 
 ```markdown
-# SURINP-XXX Sprint Contract
+# PROJ-XXX Sprint Contract
 
 > 보충 문서 — 원본: [dev-guide 경로]
 > 생성: /harness-plan
@@ -114,7 +114,7 @@ dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 ### Step 5. 파일 저장 + Shared State 갱신 (Read-Merge-Write 필수)
 
 **5.1 Sprint Contract 파일 저장**
-저장 경로: `.claude/runtime/sprint-contract/SURINP-XXX.md`
+저장 경로: `.claude/runtime/sprint-contract/PROJ-XXX.md`
 
 **5.2 workflow-state.json 갱신 (누락 금지)**
 
@@ -124,10 +124,10 @@ dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 2. **Merge**: 기존 필드를 보존하며 다음을 갱신한다:
    ```json
    {
-     "issue_key": "SURINP-XXX",
+     "issue_key": "PROJ-XXX",
      "stage": "plan-supplement",
      "dev_guide_path": "<감지된 dev-guide 경로>",
-     "sprint_contract_path": ".claude/runtime/sprint-contract/SURINP-XXX.md",
+     "sprint_contract_path": ".claude/runtime/sprint-contract/PROJ-XXX.md",
      "updated_at": "YYYY-MM-DDTHH:MM:SS"
    }
    ```
@@ -135,7 +135,7 @@ dev-guide를 읽고 다음 고정 스키마의 Sprint Contract를 생성한다:
 
 파일이 **존재하지 않으면**: `.claude/runtime/workflow-state.template.json`을 읽어 템플릿 기반으로 새로 생성한 후 위 필드를 채운다.
 
-**절대 원칙**: 이 스킬은 **workflow-state.json 갱신을 건너뛰지 않는다**. 갱신 없이 종료하면 /harness-gate와 /harness-resume이 stale 데이터를 읽게 되어 전체 Harness 무결성이 깨진다.
+**절대 원칙**: 이 스킬은 **workflow-state.json 갱신을 건너뛰지 않는다**. 갱신 없이 종료하면 /harness-gate 와 harness-workflow 의 재개 절차(구 /harness-resume 폐기 — workflow-state 직독)가 stale 데이터를 읽게 되어 전체 Harness 무결성이 깨진다.
 
 ### Step 6. 사용자에게 요약 출력
 
@@ -154,6 +154,8 @@ Sprint Contract의 핵심 3가지만 요약:
 - Jira MCP 호출은 필요할 때만 (이슈 본문 참조 시)
 
 ## --subtasks Mode
+
+> ⚠️ **2026-07-20 표면 폐지 (ADR-106)**: `--subtasks` 플래그 표면은 폐기 — 이 섹션은 하위이슈 **미러 규칙**(전이 동기화·짧은 댓글)으로만 유효하며, harness-workflow 가 플래그 없이 수행한다 (`_subtasks-convention.md` §7). slice 병렬 실행 단위는 Workflow 레인 (`harness-workflow/references/parallel-modes.md`).
 
 사용자가 `/harness-plan <KEY> --subtasks` 로 호출 시:
 

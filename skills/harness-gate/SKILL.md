@@ -1,11 +1,11 @@
 ---
 name: harness-gate
-description: "커밋 전 최종 품질 게이트. aggregate-verdict 확인 + 프로젝트별 빌드/타입체크/린트를 종합 검증합니다. '/harness-gate', 'harness gate', '품질 게이트', '커밋 전 검증' 요청 시 사용 — 커밋 직전 최종 게이트(jira-commit 의 DoD 검증과 독립)."
+description: "커밋 전 최종 품질 게이트. aggregate-verdict 확인 + 프로젝트별 빌드/타입체크/린트를 종합 검증합니다. '/harness-gate', 'harness gate', '품질 게이트', '커밋 전 검증' 요청 시 사용 — harness-workflow gate 단계(references/gate.md — 구 jira-test·jira-commit 흡수) 내부의 최종 게이트."
 ---
 
 # /harness-gate — Pre-commit 품질 게이트
 
-> **직교 원칙**: /jira-commit의 DoD 검증과 독립. 더 엄격한 Harness 품질 기준 적용.
+> **위치**: harness-workflow ⑧ gate 단계의 2번째 관문 (테스트 → **본 게이트** → DoD → commit, `harness-workflow/references/gate.md` 참조 — 구 /jira-commit 의 DoD 검증은 gate 단계로 흡수됨). 더 엄격한 Harness 품질 기준 적용.
 > **참조**: ~/.claude/docs/HARNESS-JIRA-ORTHOGONAL-ARCHITECTURE.md
 
 ## ⛔ Guard — HARNESS_MODE 확인 (최우선)
@@ -58,7 +58,7 @@ CLAUDE.md에 빌드/타입체크 명령이 명시되어 있으면 그것을 우�
 
 ### Step 3. Sprint Contract DoD 체크
 
-Sprint Contract (`.claude/runtime/sprint-contract/SURINP-XXX.md`)가 있으면:
+Sprint Contract (`.claude/runtime/sprint-contract/PROJ-XXX.md`)가 있으면:
 - "Definition of Done" 섹션의 체크박스 상태 확인
 - 미완료 항목이 있으면 경고 (차단은 아님)
 

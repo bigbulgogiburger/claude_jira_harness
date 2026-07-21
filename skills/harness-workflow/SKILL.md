@@ -1,232 +1,72 @@
 ---
 name: harness-workflow
-description: "Jira 스킬과 Harness를 자동 시퀀싱하는 통합 오케스트레이터. /jira-start부터 /jira-complete까지 + 중간 Sprint Contract + 리뷰 Inner Loop를 한 번에 실행합니다. '/harness-workflow', 'harness workflow', '전체 워크플로우', '이슈 전체 진행' 요청 시 사용."
+description: "Jira 이슈 풀사이클 유일 진입점 — start(브랜치+In Progress)→grill(요구 명확화)→plan(dev-guide)→contract→[compile]→execute(dynamic Workflow 레인 / unattended 러너)→review(fan-out+Codex)→gate(테스트+DoD+커밋)→complete(QA 전이+closure ingest)를 자동 시퀀싱. '/harness-workflow', 'harness workflow', '전체 워크플로우', '이슈 전체 진행', '풀사이클', '이슈 시작해줘', '작업 시작', '브랜치 만들어줘', '티켓 잡아줘', '테스트 돌려줘', '커밋해줘', 'DoD 체크', '이어서 작업', '이전 작업 복원' 요청 시 사용 (구 /jira-start·/jira-clarify·/jira-test·/jira-commit·/harness-resume 는 2026-07-20 폐기 — 전부 이 워크플로의 내부 단계)."
 ---
 
-# /harness-workflow — 통합 오케스트레이터 (Level 4)
+# /harness-workflow — 통합 오케스트레이터 (유일 진입점)
 
-> **직교 원칙**: Jira 스킬을 수정하지 않고 **Skill tool로 순차 호출**하여 감싼다.
-> **핵심 가치**: 사용자는 이슈 키 하나만 입력. 나머지는 자동 시퀀싱.
-> **참조**: ~/.claude/docs/HARNESS-JIRA-ORTHOGONAL-ARCHITECTURE.md
+> **직교 원칙**: 유지되는 Jira/Harness 스킬은 수정하지 않고 `Skill()` 로 호출. 상세 절차는 단계 진입 시에만 `references/<단계>.md` 를 Read (lazy-load 를 단계 레벨까지 연장).
+> **폐기된 단독 명령** (2026-07-20, harness v2 설계 §3·ADR-106): `/jira-start` `/jira-clarify` `/jira-test` `/jira-commit` `/harness-resume` — 사용자가 이 이름으로 요청하면 해당 **단계만** 이 워크플로 절차로 수행하면 된다 (풀사이클 강제 아님).
 
 ## Usage
 
 ```
-/harness-workflow <KEY>                          # 1 부모 일반
-/harness-workflow <KEY> --subtasks               # 1 부모 + 하위 fan-out (Tier-2, ADR-070)
-/harness-workflow <KEY1> <KEY2> ... [--subtasks] # ⚡ 다중 부모 병렬 (Tier-1 + Tier-2)
+/harness-workflow <KEY>                # 단일 이슈 (BE+FE 걸치면 자동 2레인)
+/harness-workflow <KEY1> <KEY2> ...    # 다중부모 fan-out (worktree 격리 — references/parallel-modes.md)
 ```
 
-### 모드 결정 트리 (입력 시 무조건 확인)
+## ⛔ Guard — HARNESS_MODE (최우선)
 
-1. **입력에 부모 키가 2개 이상인가?** (공백 / 슬래시 / 쉼표로 구분된 별개 부모 — 같은 epic 의 형제 작업 포함)
-   → **YES → 즉시 `parallel-fanout.md` 로 분기**. 본 SKILL.md 의 단일-인스턴스 시퀀스는 적용 금지.
-   - `Read('~/.claude/skills/harness-workflow/parallel-fanout.md')` 먼저 호출 + §0 사전조건 10개 검증 + §3 충돌 매트릭스 + §4 옵션 A/B/C/D 사용자 승인 → §5 worktree 생성 + Tier-1 Agent spawn × N (worktree 격리, `TeamCreate` 없음)
-   - 일반적인 misconception: "fan-out = `--subtasks` 만" ❌ — fan-out 은 **2-tier**. Tier-1 (다중 부모 worktree) + Tier-2 (단일 부모 하위 Agent Teams). `parallel-fanout.md` 가 SSoT.
+`HARNESS_MODE` 확인: `suggest`/`auto` 면 진행, 미설정/빈값/`off` 면 안내 후 중단. 정책 SSoT: `~/.claude/skills/_harness-guard.md` (**`Skill()` 호출 금지** — Read 또는 env 직접 확인).
 
-2. **입력에 부모 키가 1개 + `--subtasks` 플래그?**
-   → 본 SKILL.md 의 단일-인스턴스 시퀀스 + 자식 스킬 호출마다 `--subtasks` 자동 전파 (`_subtasks-convention.md` § 7).
-   - 진입 조건: 부모 이슈의 `subtasks` 필드에 하위 키 1개 이상 존재 (자동 검증). 미충족 시 일반 모드 폴백.
+## 단계 결정표
 
-3. **입력에 부모 키가 1개 + 플래그 없음?**
-   → 본 SKILL.md 의 단일-인스턴스 시퀀스, 부모만 처리.
+| # | 단계 | 하는 일 | 상세/호출 | 산출물 | 게이트 |
+|---|------|---------|-----------|--------|--------|
+| ① | start | 이슈 조회·브랜치·assignee·In Progress | `references/start.md` | `feat/<KEY>` 브랜치 | — |
+| ② | grill | 요구·결정사항 확정 (모호할 때만, 한 번에 한 질문) | `Skill('grilling')` + `references/clarify.md` (사전 크롤링) | 확정 결정 목록 | 이슈가 이미 구체적이면 skip |
+| ③ | plan | recon → dev-guide 생성 (+ ingest forecast 자동 chain) | `Skill('jira-plan', <KEY>)` **필수 — 우회 금지** (§6 forecast 발화) | `docs/<KEY>-dev-guide.md` | INDEX.md cross-ref 선조회 (ALWAYS) |
+| ④ | contract | DoD·Verify Targets·인간게이트 명시 | `Skill('harness-plan', <KEY>)` | `.claude/runtime/sprint-contract/<KEY>.md` | — |
+| — | **승인** | dev-guide+contract 요약 제시 | — | — | **사용자 승인 필수** (수정 요청 시 ③ 복귀) |
+| ⑤ | compile | (opt-in) dev-guide → step 컴파일 | `Skill('jira-compile', <KEY>)` — 대형 이슈·무인 실행 시에만 | `phases/<KEY>/index.json` + `step*.md` | 소형 이슈는 skip (러너는 opt-in) |
+| ⑥ | execute | 구현 | attended: dynamic Workflow 레인 (`references/parallel-modes.md` — 모든 `agent()` 에 `opts.model`, 스모크 프로브) / unattended: `harness-execute.py` 러너 | 코드 + step summary | blocked/error 시 인간 개입 |
+| ⑦ | review | fan-out 전문 리뷰 + Codex adversarial (`scripts/codex-review.sh` 래퍼) | `Skill('harness-review')` | `.claude/runtime/aggregate-verdict.md` | PASS→⑧ / ITERATE(≤3)→수정 후 재리뷰 / ESCALATE→재계획 |
+| ⑧ | gate | 테스트+빌드 GREEN → DoD → 커밋 → Jira 댓글 | `references/gate.md` + `Skill('harness-gate')` | commit SHA | **review-gate hook 이 verdict≠PASS commit 물리 차단** (JSON deny) |
+| ⑨ | complete | QA 전이 + push + closure ingest + wiki-lint | `Skill('jira-complete', <KEY>)` **필수 — 우회 금지** (§4.4/4.6/4.7 chain 발화) | INDEX row closed·LOG append | — |
 
-⚠️ **회귀 사례** (2026-05-22): 사용자가 `STD-233 / STD-234 --subtasks` 입력 시 "두 별개 부모는 한 워크플로로 못 묶는다" 며 순차 진행 제안 → `parallel-fanout.md` 존재 자체를 놓침. **결정 트리 1번 분기를 반드시 먼저 평가**.
+**Phase 반복**: contract 의 Phase 수만큼 ⑥→⑦ 을 Phase 단위로 반복 (Inner Loop 는 같은 Phase 안에서만 — Phase 간 blocker 는 ESCALATE).
 
-## ⛔ Guard — HARNESS_MODE 확인 (최우선)
+## 병렬 모드 (fan-out 표준 = dynamic Workflow)
 
-> `HARNESS_MODE` 환경변수를 직접 확인한다 — `suggest`/`auto` 면 정상 진행, 미설정/빈값/`off` 면 즉시 중단(안내 출력 후 이후 단계 실행 금지).
-> 정책 SSoT: `~/.claude/skills/_harness-guard.md` (**`Skill()` 호출 금지** — `Read` 로 참조하거나 환경변수만 직접 확인할 것).
+- **모드 결정**: 부모 키 2개 이상 → 다중부모 fan-out / 단일 이슈 BE+FE → 2레인. 두 모드 모두 `references/parallel-modes.md` 가 SSoT.
+- **Agent Teams 신규 사용 금지** (실측 결함 4건 — LOG 228·632, CHANGELOG 116·235). 구 `--subtasks` 정식 모드(ADR-070)는 표면 제거 — Jira 하위이슈가 있으면 댓글/전이만 부모와 함께 처리하고, 병렬 실행 단위는 위 2모드로 판단.
+- 모델 티어링(메인=fable): fable=orchestration·verify·크로스레인 seam / opus=난이도 상 / sonnet=중·하. 규칙 3개(전 `agent()` model 명시·스모크 프로브·fable 레인 사유 필수)는 `references/parallel-modes.md`.
 
----
+## 재개 (구 /harness-resume 폐기)
 
-## Shared State 초기화
-
-워크플로 시작 시 `.claude/runtime/workflow-state.json` 생성:
-
-```json
-{
-  "issue_key": "SURINP-XXX",
-  "stage": "start",
-  "current_phase": 0,
-  "total_phases": 0,
-  "iteration": 0,
-  "dev_guide_path": null,
-  "sprint_contract_path": null,
-  "aggregate_verdict": null,
-  "changed_files": [],
-  "agent_outputs": {},
-  "history": [],
-  "subtasks_mode": false,
-  "subtasks": [],
-  "slice_status": {}
-}
-```
-
-`--subtasks` 모드 시:
-- `subtasks_mode: true`
-- `subtasks: [<sub-key>, ...]` (부모 이슈 조회 결과)
-- `slice_status: {<sub-key>: "pending"}` (구현/리뷰/완료 단계마다 갱신)
-
-## 시퀀스
-
-> **`--subtasks` flag 자동 전파 규칙** — 사용자가 `/harness-workflow <KEY> --subtasks` 로 호출했으면, 아래 모든 자식 Skill 호출 인자에 `--subtasks` 자동 부착. 단 통합 검증 단계 (jira-test, harness-gate) 는 flag 불필요. 자세히는 `~/.claude/skills/_subtasks-convention.md` § 7.
-
-### Phase 0: 모드 확인 (`--subtasks` 시)
-
-```
-0. 사용자 입력에 --subtasks 가 있으면:
-   - mcp__atlassian__getJiraIssue 로 부모 이슈 조회
-   - subtasks 필드에 1개 이상 있으면 subtasks_mode 진입
-   - 비어있으면 일반 모드 폴백 + 사용자에게 안내
-   - state.subtasks_mode = true, state.subtasks = [...]
-```
-
-### Phase 1: 착수
-
-```
-1. Skill tool로 /jira-start <ISSUE-KEY> [--subtasks] 호출
-   → 부모 In Progress 전환 + 브랜치
-   → (--subtasks) 모든 하위 In Progress 전환 + 짧은 댓글
-   → state.stage = "start"
-```
-
-### Phase 2: 요구 명확화 (조건부)
-
-```
-2. 사용자에게 확인: "요구사항이 명확합니까? /jira-clarify가 필요합니까?"
-   → 필요하면: Skill tool로 /jira-clarify <ISSUE-KEY> [--subtasks] 호출
-   → 불필요하면: 스킵
-```
-
-### Phase 3: 계획
-
-```
-3. Skill tool로 /jira-plan <ISSUE-KEY> [--subtasks] 호출
-   → 부모 dev-guide.md 생성
-   → (--subtasks) slice dev-guide N장 추가 + 각 하위에 댓글
-   → (자동 chain) jira-plan §6 — docs/INDEX-SCHEMA.md 있으면 jira-ingest forecast 자동 호출
-                   INDEX.md row 추가 (status=planned) + LOG append
-                   wiki 미설정 프로젝트는 skip
-   → state.dev_guide_path = <생성된 경로>
-   → state.stage = "planning"
-
-4. Skill tool로 /harness-plan <ISSUE-KEY> [--subtasks] 호출
-   → Sprint Contract 생성 (slice 별 DoD 인라인)
-   → state.sprint_contract_path = <생성된 경로>
-   → state.stage = "plan-supplement"
-   → state.total_phases = <Sprint Contract의 Phase 수>
-```
-
-### Phase 4: 사용자 승인
-
-```
-5. Sprint Contract의 핵심을 요약하여 사용자에게 제시
-   → "이 계획으로 진행하시겠습니까?"
-   → 승인: Phase 5로
-   → 수정 요청: Phase 3으로 돌아가 재계획
-```
-
-### Phase 5: 구현 + 리뷰 Inner Loop
-
-```
-현재 Phase = state.current_phase + 1
-
-OUTER LOOP (Phase 단위):
-  while current_phase <= total_phases:
-  
-    6. Skill tool로 /jira-execute <ISSUE-KEY> [--subtasks] 호출
-       → Phase N 구현
-       → (--subtasks) slice 별 구현 완료 시 해당 하위에 짧은 댓글
-       → state.stage = "implementing-phase-N"
-    
-    INNER LOOP (리뷰-수정 반복):
-      state.iteration = 0
-      
-      7. Skill tool로 /harness-review [--subtasks] 호출
-         → Fan-out 리뷰 + Aggregate verdict
-         → (--subtasks) slice 별 verdict 가 있으면 부모 verdict 에 롤업
-         → state.stage = "reviewing-phase-N"
-         → state.iteration += 1
-      
-      8. Verdict 분기:
-         PASS → Inner Loop 탈출, 다음 Phase
-         ITERATE (iteration < 3) → 수정 후 7번으로
-         ESCALATE → 사용자에게 재계획 제안
-           → 수락 시: /harness-plan 재호출 (v2), Phase 3으로
-           → 거부 시: 현재 상태로 강제 진행
-    
-    state.current_phase += 1
-```
-
-### Phase 6: 최종 검증 + 커밋
-
-```
-9. Skill tool로 /jira-test 호출        # flag 불필요 (통합 검증)
-   → 프로젝트별 테스트 실행
-
-10. Skill tool로 /harness-gate 호출    # flag 불필요 (통합 게이트)
-    → 최종 품질 게이트
-    → GATE PASS 필수
-
-11. Skill tool로 /jira-commit <ISSUE-KEY> [--subtasks] 호출
-    → 부모 commit + 댓글
-    → (--subtasks) 모든 하위에 commit SHA 인용 댓글
-```
-
-### Phase 7: 완료
-
-> ⛔ **Phase 7 은 반드시 `Skill('jira-complete', ...)` 로 진입할 것.** harness-workflow 가 직접 `mcp__atlassian__transitionJiraIssue` + `git push` + comment 만 호출하고 jira-complete skill 자체를 우회하면 §4.4 (ingest closure) + §4.6 (organize CLAUDE.md) + §4.7 (wiki-lint summary) chain 이 통째로 발화 안 한다 (2026-05-14 STD-208 사고). transition/push 를 본 skill 안에서 미리 한 경우라도 §4.4/§4.6/§4.7 발화를 위해 jira-complete skill 을 후속 호출해야 한다.
->
-> 또한 Phase 3 도 동일 — 반드시 `Skill('jira-plan', ...)` 로 진입해야 §6 (ingest forecast) chain 이 발화. harness-workflow 가 직접 dev-guide 만 작성하고 jira-plan skill 우회하면 forecast 단계 누락 → closure 단계에서 row 가 갑자기 튀어나오는 비대칭.
-
-```
-12. Skill tool로 /jira-complete <ISSUE-KEY> [--subtasks] 호출
-    → 부모 QA 전이 + 푸시 + archive
-    → (--subtasks) 모든 하위 QA 전이 + 짧은 댓글
-    → (자동 chain) jira-complete §4.4 — wiki 설정된 프로젝트면 jira-ingest closure 자동 호출
-                   INDEX status=closed + cross-ref (ADR/sprint week·track) 갱신
-    → CLAUDE.md 위생 체크 자동 포함 (jira-complete §4.6) — 임계점 도달 시
-      organize-claude-md 자동 호출 + Phase 6 사용자 승인 대기.
-    → (자동 chain) jira-complete §4.7 — wiki 설정된 프로젝트면 wiki-lint summary 자동 호출
-                   high severity 만, non-blocking. 위반 보고만 출력.
-    → state cleanup (workflow-state.json 삭제 또는 아카이브)
-```
-
-**자기 점검 (harness-workflow 종료 직전 last-mile check)**:
-- `docs/INDEX-SCHEMA.md` 존재? → 본 워크플로 동안 jira-ingest forecast (Phase 3) + closure (Phase 7) 호출 흔적이 conversation 에 모두 있어야 함
-- wiki-lint summary (Phase 7) 호출 흔적도 있어야 함
-- 누락 감지 시 → **지금 즉시 일괄 호출** + 사용자에게 "Phase X chain 누락 감지 → 사후 호출함" 보고
-
-## 중단 + 재개 지원
-
-워크플로 중간에 세션이 종료되면:
-- Stop Hook이 자동으로 checkpoint 저장
-- 새 세션에서 `/harness-resume`로 마지막 단계부터 재개
+중단된 작업 재개 = 상태 파일 읽고 이어가기 한 줄:
+1. `phases/<KEY>/index.json` 있으면 첫 `pending` step 부터 (러너/컴파일 이슈).
+2. 없으면 `.claude/runtime/workflow-state.json`(이슈별 임시 산출물) + `sprint-contract/<KEY>.md` + 최신 `aggregate-verdict.md` 를 Read 후 결정표의 해당 단계부터 재개.
+3. Jira 상태는 건드리지 않는다 (이미 ① 이 처리).
 
 ## 에러 핸들링
 
 | 에러 | 처리 |
 |------|------|
-| jira-start 실패 (브랜치 충돌) | 사용자에게 알림, 수동 해결 후 재시도 |
-| jira-plan 실패 | 사용자에게 직접 dev-guide 작성 또는 재시도 제안 |
-| 빌드 실패 (Phase 중) | 프로젝트 build-resolver 에이전트 자동 제안 |
-| harness-review 에이전트 미존재 | 해당 축 스킵, 경고 출력 |
-| 3회 ITERATE 후 동일 Blocker | ESCALATE → 재계획 제안 |
+| 브랜치 충돌 | 사용자 알림, 수동 해결 후 재시도 |
+| 빌드 실패 | 프로젝트 build-resolver 에이전트 제안 |
+| 리뷰 에이전트 미존재 | 해당 축 스킵 + 경고 |
+| Codex 래퍼 exit 42 | opus skeptic workflow 자동 폴백, verdict 에 `codex=fallback(<사유>)` |
+| 3회 ITERATE 동일 blocker | ESCALATE → 재계획 제안 |
 
 ## HARNESS_MODE 동작
 
-| 모드 | /harness-workflow 동작 |
-|------|----------------------|
-| `auto` | 전체 시퀀스 자동 진행, Phase 승인만 수동 |
-| `suggest` | 각 Harness 단계(plan/review/gate)마다 사용자 확인 |
-| `off` | `/harness-workflow` 자체를 호출하면 동작하지만, Hook은 비활성 |
+| 모드 | 동작 |
+|------|------|
+| `auto` | 전체 자동 진행, 승인 게이트만 수동. review-gate 가 commit 물리 차단 |
+| `suggest` | plan/review/gate 단계마다 사용자 확인. review-gate 는 경고만 |
+| `off` | 워크플로 호출은 동작하나 hook 비활성 |
 
----
+## 자기 점검 (종료 직전)
 
-## 주의사항
-
-- **Jira 스킬은 Skill tool로 호출** — 내부적으로 스킬의 SKILL.md를 변경하지 않음
-- 스킬 호출 실패 시 스킬이 없다면 해당 단계 스킵 가능 여부를 사용자에게 확인
-- Inner Loop는 **같은 Phase 안에서만** 동작 — Phase 간 Blocker는 ESCALATE
-- 전체 워크플로 중 어디서든 사용자가 중단 가능 — state 자동 저장
+`docs/INDEX-SCHEMA.md` 존재 시 — ③ ingest forecast + ⑨ closure ingest + wiki-lint summary 호출 흔적이 대화에 모두 있어야 함. 누락 감지 → 즉시 일괄 호출 + 사용자 보고.

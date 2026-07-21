@@ -17,7 +17,7 @@ harness-* 스킬은 **모든 단계보다 먼저** `HARNESS_MODE` 환경변수�
 
 | 스킬 | 가드 |
 |------|------|
-| harness-plan / harness-gate / harness-review / harness-resume / harness-score / harness-shadow / harness-workflow | ✅ 적용 |
+| harness-plan / harness-gate / harness-review / harness-score / harness-shadow / harness-workflow | ✅ 적용 (harness-resume 은 2026-07-20 폐기 — 재개는 harness-workflow 내부 절차) |
 | **harness-setup** | ❌ 미적용 — Harness 를 **설정하는** 스킬이라 `off`/미설정 상태에서 진입하는 게 정상 |
 | jira-* / wiki-lint / jira-ingest | ❌ 미적용 — Harness 와 직교(orthogonal). HARNESS_MODE 무관하게 동작 |
 

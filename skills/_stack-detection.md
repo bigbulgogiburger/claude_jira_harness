@@ -60,7 +60,7 @@
 
 ---
 
-## §4. 스택별 검증 명령 (jira-test / jira-commit / jira-complete / harness-gate 용)
+## §4. 스택별 검증 명령 (harness-workflow gate 단계 / jira-complete / harness-gate 용 — 구 jira-test·jira-commit 은 2026-07-20 gate 단계로 흡수)
 
 **CLAUDE.md 에 커스텀 명령이 있으면 그것을 우선**한다. 없을 때의 기본:
 
@@ -80,10 +80,10 @@
 
 | 스킬 | 참조하는 절 |
 |------|------------|
-| jira-start | §1 (감지 → 스택) |
+| harness-workflow start 단계 (구 jira-start) | §1 (감지 → 스택) |
 | jira-create | §1 + §3 (라벨) |
 | jira-plan / jira-execute | §1 + §2 (페르소나) |
-| jira-test / jira-commit / jira-complete / harness-gate | §1 + §4 (검증 명령) — 단 CLAUDE.md 커스텀 우선 |
+| harness-workflow gate 단계 (구 jira-test·jira-commit) / jira-complete / harness-gate | §1 + §4 (검증 명령) — 단 CLAUDE.md 커스텀 우선 |
 | harness-plan / harness-review | §1 (fallback 스택 감지) — cwd 프로젝트 매칭이 먼저, 미매칭 시 §1 |
 
 각 스킬은 본문에 다음 1줄만 둔다:

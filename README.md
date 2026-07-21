@@ -2,240 +2,192 @@
 
 > Jira × Harness × LLM Wiki — 한 줄짜리 요구사항을 **영구 지식 자산**까지 밀어붙이는 Claude Code 스킬 셋. 설계·구현·운영 SSoT 모두 **dhpyun** ([@bigbulgogiburger](https://github.com/bigbulgogiburger)) 작성.
 
-Jira 이슈 한 줄을 받아서 **등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료** 전 사이클을 슬래시 명령으로 묶고, 그 위에 다중 에이전트 리뷰(Harness)와 사후 채점·Shadow 비교, 그리고 모든 산출물을 **한 번 흡수하면 영구 자산이 되는 LLM Wiki**로 누적하는 사용자 스코프 스킬 모음. 부가로 코드베이스 AI 준비도 감사, knowledge graph 추출, Spring Boot 리팩토링, raster 이미지 생성, CLAUDE.md 자동 정리까지 한 레포에 담았다.
+Jira 이슈 한 줄을 받아서 **start → grill → plan → contract → (compile) → execute → review → gate → complete** 풀사이클을 `/harness-workflow` **단일 진입점**으로 밀고, 그 위에 다중 에이전트 리뷰·**물리 커밋 게이트(JSON deny)**·headless 러너(무인 step 실행)·사후 채점, 그리고 모든 산출물을 **한 번 흡수하면 영구 자산이 되는 LLM Wiki**로 누적하는 사용자 스코프 스킬 모음. 부가로 코드베이스 AI 준비도 감사, knowledge graph 추출, Spring Boot 리팩토링, raster 이미지 생성, CLAUDE.md 자동 정리까지 한 레포에 담았다.
 
 ## ✨ 한눈에
 
 | 카테고리 | 개수 |
 | -------- | :--: |
-| Jira 워크플로우 | 8 |
-| Harness Engineering | 8 |
+| 워크플로 (유일 진입점 + 내부 단계 스킬) | 1 + 6 |
+| Harness Engineering (게이트·채점·프로비저닝) | 4 |
+| Headless Runner (무인 step 실행기) | 1 셋 |
 | LLM Wiki (영구 지식 자산화) | 3 + 1 SSoT |
 | 코드베이스 분석·리팩토링 | 3 |
-| 부가 스킬·명령어 | 2 |
+| 부가 스킬·명령어 | 3 |
 
-- **체이닝되는 단일 파이프라인** — `jira-create`부터 `jira-complete`까지 슬래시 명령 한 줄씩, 또는 `harness-workflow` 한 방으로 전 과정 자동 시퀀싱.
-- **다중 에이전트 품질 게이트** — 변경마다 프로젝트별 전문 에이전트 fan-out 리뷰 + aggregate verdict + 사후 채점/Shadow 비교로 경험적 lift 측정.
-- **영구 지식 자산화** — dev-guide·ADR·외부 문서를 build-time 합성해 `docs/INDEX.md`·`docs/LOG.md` wiki로 누적. RAG 아닌 원본 보존 + 합성 패턴.
-- **병렬 fan-out 운영 규율** — 여러 부모 이슈를 git worktree 격리로 동시 실행하는 2-tier 직렬화·머지·복구 규칙까지 SSoT로 명문화.
+- **유일 진입점** — 구 9개 슬래시 명령 체인을 `/harness-workflow` 하나로 축소 (2026-07 ADR-106). `/jira-start`·`/jira-clarify`·`/jira-test`·`/jira-commit`·`/harness-resume` 는 폐기 — 전부 워크플로의 **내부 단계**가 됐고, 상세 절차는 단계 진입 시에만 lazy-load 되는 `references/*.md` 로 강등 (표면 1,589줄 → 205줄, **87% 축소**).
+- **물리 커밋 게이트** — verdict ≠ PASS 면 PreToolUse hook 이 `permissionDecision:"deny"` JSON 으로 `git commit` 자체를 차단. `--dangerously-skip-permissions` 에서도 유효. auto 모드는 **fail-closed** (파싱 실패 = UNKNOWN 도 차단). ⚠ 구버전의 `exit 1` 방식은 공식 hook 시맨틱상 **비차단**이었다 — upgrade 필수.
+- **Headless Runner** — dev-guide 를 step 시퀀스로 컴파일(`/jira-compile`)한 뒤 러너(`runner/harness-execute.py`)가 step 마다 fresh `claude -p` 세션을 돌린다. **모델은 코드만 쓰고**, 검증(AC 재실행·probe·diff 범위·FORBID)과 commit 권한은 러너가 가진다 — 모델 자기보고를 신뢰하지 않는 결정론 게이트.
+- **병렬 = dynamic Workflow** — Agent Teams 는 운영 실측 결함 4건(시퀀스 무시·worker hang·모델 오버라이드 미적용 2회)으로 **사용 금지**. 병렬은 ① 단일이슈 2레인(BE/FE) ② 다중부모 worktree fan-out 2모드, 전 레인 `opts.model` 명시 + 모델 스모크 프로브.
+- **영구 지식 자산화** — dev-guide·ADR·외부 문서를 build-time 합성해 `docs/INDEX.md`·`docs/LOG.md` wiki 로 누적. RAG 아닌 원본 보존 + 합성 패턴. 러너의 선별 가드레일 주입(context_refs)도 이 wiki 의 cross-ref 를 소스로 쓴다 — **전량 주입 대비 ~1.3% 크기**.
 
 ## ⚡ 5분 만에 시작하기 (0 → 첫 이슈 완료)
 
-스킬을 [설치](#설치)한 뒤, 새 프로젝트에 이 스킬셋을 붙여 **첫 Jira 이슈를 끝까지 미는 최단 경로**다. 네 단계면 환경 셋업부터 부모+하위 이슈 일괄 완료까지 도달한다.
-
-**1️⃣ Jira MCP 설정 + 인증** — `jira-*` 스킬이 `mcp__atlassian__*` 도구를 쓰려면 Atlassian Remote MCP 서버가 연결돼 있어야 한다.
+**1️⃣ Jira MCP 설정 + 인증**
 
 ```bash
-# Claude Code 에 Atlassian Remote MCP 등록
 claude mcp add atlassian -t sse https://mcp.atlassian.com/v1/sse
 ```
 
-그다음 Claude Code 세션에서 `/mcp` → `atlassian` → **Authenticate** 로 브라우저 OAuth 인증을 마친다. (`/mcp` 로 `atlassian` 이 `connected` 로 보이면 완료.)
+세션에서 `/mcp` → `atlassian` → **Authenticate** 로 OAuth 인증 (`connected` 확인).
 
-**2️⃣ `/organize-claude-md full`** — 프로젝트의 `CLAUDE.md` 를 Lazy Loading 참조 구조로 재구성해, 에이전트가 매 세션 컨텍스트를 가볍게 로드하도록 만든다.
+**2️⃣ `/organize-claude-md full`** — `CLAUDE.md` 를 Lazy Loading 참조 구조로 재구성.
 
-```
-/organize-claude-md full
-```
+**3️⃣ `/harness-setup auto`** — 스택 자동 감지 후 프로젝트 전용 에이전트·**hooks 3종**(context-inject·compile-check·review-gate)·`.claude/runtime/` 프로비저닝. 멱등. 배포 직후 **게이트 실차단 스모크(V6)** 를 스스로 돌려 "게이트가 닫혀 있음"을 실측으로 증명한다.
 
-**3️⃣ `/harness-setup auto`** — 스택을 자동 감지(Spring Boot / Vue / React …)해 프로젝트 전용 에이전트·훅·메트릭 인프라와 `.claude/runtime/` 를 프로비저닝한다. 멱등이라 이미 구성된 프로젝트에 다시 돌려도 안전하다.
+**4️⃣ `/harness-workflow <ISSUE>`** — 이슈 하나를 풀사이클로. 부모 이슈에 Jira 하위이슈가 있으면 플래그 없이 자동으로 미러(전이 동기화 + 짧은 댓글)한다.
 
 ```
-/harness-setup auto
+/harness-workflow PROJ-7
 ```
-
-**4️⃣ `/harness-workflow <ISSUE> --subtasks`** — 부모 이슈 1개 + 하위 N개를 한 fan-out 단위로 **등록 → 시작 → 구체화 → 계획 → 구현 → 테스트 → 커밋 → 완료** 까지 한 번에 민다. 산출물은 부모에 귀속되고 하위는 트래킹 미러로 동기된다.
-
-```
-/harness-workflow PROJ-7 --subtasks
-```
-
-> 단계별 슬래시 사이클 전체 흐름과 멀티부모 병렬은 아래 [🚀 빠른 시작](#-빠른-시작) 참조.
 
 ## 🔄 엔드투엔드 파이프라인
 
 ```mermaid
-flowchart LR
-    subgraph WF["harness-workflow — 전체 오케스트레이터"]
-        direction LR
-        create["jira-create<br/>이슈 등록"] --> start["jira-start<br/>브랜치+In Progress"]
-        start --> clarify["jira-clarify<br/>요구사항 구체화"]
-        clarify --> plan["jira-plan<br/>dev-guide 생성"]
-        plan --> execute["jira-execute<br/>구현"]
-        execute --> test["jira-test<br/>unit/lint/build"]
-        test --> commit["jira-commit<br/>DoD+커밋"]
-        commit --> complete["jira-complete<br/>최종 검증+QA 전환"]
-
-        subgraph INNER["execute 안 — 리뷰 Inner Loop"]
-            direction LR
-            review["harness-review<br/>fan-out"] --> verdict{"aggregate<br/>verdict"}
-            verdict -->|ITERATE| review
-            verdict -->|ESCALATE| review
-        end
-        execute --> review
-
-        plan -. 자동 chain .-> ingest1["jira-ingest<br/>INDEX 갱신"]
-        complete -. 자동 chain .-> ingest2["jira-ingest<br/>최종 반영"]
-        complete -. 자동 chain .-> lint["wiki-lint<br/>health check"]
-    end
-
-    fanout["parallel-fanout<br/>다중 부모 동시"] -.->|worktree 격리| WF
+flowchart TD
+    U["/harness-workflow KEY [KEY2 ...]"] --> S1["① start — 브랜치+assignee+In Progress<br/>(references/start.md)"]
+    S1 --> S2["② grill — 요구 명확화 문답<br/>(grilling 스킬, 모호할 때만)"]
+    S2 --> S3["③ plan — /jira-plan → dev-guide"]
+    S3 --> S4["④ contract — /harness-plan → sprint-contract"]
+    S4 --> H{"사용자 승인"}
+    H --> S5["⑤ compile (opt-in) — /jira-compile<br/>phases/KEY/index.json + step*.md"]
+    S5 --> M{"실행 모드"}
+    M -->|attended| A["dynamic Workflow 레인<br/>(2레인 / 다중부모 worktree)"]
+    M -->|unattended| R["runner/harness-execute.py<br/>fresh claude -p × step + 4중 게이트"]
+    A --> S7["⑦ review — /harness-review fan-out<br/>+ Codex adversarial (래퍼 경유)"]
+    R --> S7
+    S7 -->|"ITERATE ≤3"| A
+    S7 -->|PASS| S8["⑧ gate — 테스트+DoD+커밋<br/>(review-gate 가 verdict≠PASS 물리 차단)"]
+    S8 --> S9["⑨ complete — /jira-complete<br/>QA 전이 + closure ingest + wiki-lint"]
+    S3 -.자동 chain.-> I1["jira-ingest forecast"]
+    S9 -.자동 chain.-> I2["jira-ingest closure"]
 ```
 
-> `harness-workflow`가 전 사이클을 감싸는 오케스트레이터이며, `plan`·`complete`에서 `jira-ingest`/`wiki-lint`가 자동 chain으로 분기하고, `execute` 안에서는 `harness-review`가 verdict 수렴까지 inner loop를 돈다. 여러 부모 이슈는 `parallel-fanout`이 worktree 격리로 동시에 워크플로를 띄운다.
+> 사람이 개입하는 지점은 ④→⑤ 사이 승인, review 의 ESCALATE, 러너의 blocked/error 해제뿐. attended 레인과 unattended 러너는 ⑤ compile 산출물(`index.json` = 재개 SSoT)을 공유하므로 언제든 갈아탈 수 있다.
 
 ## 🧰 스킬 카탈로그
 
-### Jira 워크플로우 (8개)
+### 워크플로 — 유일 진입점 + 내부 단계 (1 + 6)
 
-한 줄 요구사항을 8단계 슬래시 명령으로 직렬화. 각 단계는 다음 단계의 입력을 준비하며, 중간에 멈췄다 재개해도 컨텍스트가 끊기지 않는다.
-
-| 스킬 | 역할 | 호출 시점 |
-| ---- | ---- | --------- |
-| `/jira-create` | 자연어 한 줄 또는 문서 기반 단일 이슈 / 에픽→이슈→하위이슈 계층 일괄 등록 | 워크플로우 시작점 |
-| `/jira-start <KEY>` | 이슈 조회 + feature 브랜치 생성 + In Progress 전환 | 작업 시작 |
-| `/jira-clarify <KEY>` | Q&A로 요구사항 구체화, 멀티 프로젝트면 하위 이슈 자동 생성 | start 직후 |
-| `/jira-plan <KEY>` | dev-guide MD 생성 (스택 페르소나 적용) | clarify 직후 |
-| `/jira-execute <KEY>` | dev-guide 기반 실제 구현 (병렬 가능) | plan 직후 |
-| `/jira-test <KEY>` | 스택별 unit/lint/build/all 테스트 자동 실행 | execute 직후 |
-| `/jira-commit <KEY>` | DoD 체크 + 커밋 + Jira 한글 댓글 업데이트 | test 통과 후 |
-| `/jira-complete <KEY>` | 최종 검증 + QA 상태 전환 | commit 직후 |
-
-### Harness Engineering (8개)
-
-Jira 사이클 위에 다중 에이전트 리뷰·게이트·채점·복구를 얹는 계층. `harness-workflow`가 모든 단계를 자동 시퀀싱하는 진입점이다.
-
-| 스킬 | 역할 | 호출 시점 |
-| ---- | ---- | --------- |
-| `/harness-workflow <KEY>` | Jira 스킬 + Sprint Contract + 리뷰 Inner Loop 통합 오케스트레이터 | 전 사이클 한 방 진입점 |
-| `/harness-setup` | 프로젝트 스택 감지 후 에이전트/훅/메트릭 인프라 자동 프로비저닝 (멱등) | 새 프로젝트 합류 시 |
-| `/harness-plan <KEY>` | dev-guide 기반 Sprint Contract(DoD/Verify Targets/Out of Scope) 생성 | plan 보강 |
-| `/harness-review` | 코드 변경에 프로젝트별 전문 에이전트 fan-out 후 aggregate verdict | execute 중 리뷰 루프 |
-| `/harness-gate` | 커밋 전 최종 품질 게이트 (aggregate-verdict + 빌드/타입체크/린트) | commit 직전 |
-| `/harness-shadow <KEY>` | `HARNESS_MODE=off` baseline vs full-run 비교로 counterfactual lift 측정 | 5이슈 중 1회 권장 |
-| `/harness-score <KEY>` | post-merge VALID/INVALID 채점 (catch rate / FP rate 측정) | 머지 후 7일+ |
-| `/harness-resume` | 체크포인트 복원으로 중단된 단계부터 재개 | 세션 중단 후 |
-
-### LLM Wiki — 영구 지식 자산화 (3개 + 1 SSoT)
-
-Karpathy LLM Wiki 패턴 기반. dev-guide·ADR·외부 문서 등 모든 산출물을 **build-time 합성**해 한 번 흡수하면 영구 자산이 되는 지식 베이스를 만든다. `/jira-plan`·`/jira-complete`가 자동으로 ingest/lint를 chain 호출하므로 별도 호출 없이도 wiki가 누적된다.
-
-| 스킬 | 역할 | 호출 시점 |
-| ---- | ---- | --------- |
-| `/jira-ingest` | dev-guide 생성/완료마다 `docs/INDEX.md` + `docs/LOG.md` + ADR/sprint cross-reference 증분 갱신 (Jira 도메인 전용) | `/jira-plan`·`/jira-complete` 자동 chain, 또는 명시 호출 |
-| `/llm-wiki` | 임의 정보원(웹·PDF·팟캐스트·책·이미지/OCR·음성·영상·코드 리포)을 build-time 합성. ingest/query/lint 모드 자동 추론 (명시 플래그 없음). 원본 보존(raw/ immutable) + wikilink 그래프(entities/concepts/sources/questions/syntheses) | "이 글 정리해줘", "위키에 추가", "내 위키에서 찾아줘" 등 자연어 트리거 |
-| `/wiki-lint` | 14가지 정합성 체크(L01~L15, orphan / stale / broken xref / parent-sibling 비대칭 / Jira 상태 불일치 / memory drift / INDEX integrity)를 독립 실행해 부분 실패 격리. read-only by default, `--fix`·변경 승인 후만 write. 자동수정(✅) vs 수동 검토 분리 보고 | `/jira-complete` 자동 chain (high severity, non-blocking) 또는 명시 호출 |
-| [`_wiki-schema.md`](skills/_wiki-schema.md) | `jira-ingest` ↔ `wiki-lint`가 공유하는 single source of truth | — |
-
-### 코드베이스 분석·리팩토링 (3개)
-
-레포 진단·구조 추출·아키텍처 개선용. 프레임워크 무관 진단(`codebase-ai-readiness`), 그래프 추출(`graphify`), Spring 전용 리팩토링(`spring-boot-refactor`)으로 역할이 갈린다.
-
-| 스킬 | 역할 | 호출 시점 |
-| ---- | ---- | --------- |
-| `/codebase-ai-readiness` | 임의 git 레포를 7-카테고리 100점 루브릭으로 감사 → JSON 점수표 + 한국어 HTML 대시보드 + ROI 우선순위 액션 리스트. 프레임워크 무관 | 새 레포 합류 / OSS 평가 시 |
-| `/graphify` | 임의 input(코드·docs·논문·이미지) → knowledge graph → community detection → HTML + JSON + audit report. god node + BFS·DFS 쿼리. Obsidian 볼트·MCP 서버·Neo4j·GraphML·wiki·`--watch` 증분 갱신까지 내보내기 | 코드베이스/구조 질의 시 |
-| `/spring-boot-refactor` | Spring Boot DDD 강화, CQRS 적용, Service 계층 Read/Write 분리, 테스트 커버리지 개선, N+1 해결 자동 분석·제안 | Spring 리팩토링 시 |
-
-### 부가 스킬·명령어 (3개)
-
-워크플로우 밖의 보조 도구. 플랜 스트레스 테스트, raster 이미지 생성, CLAUDE.md 자동 정리.
-
-| 항목 | 종류 | 역할 |
+| 스킬 | 역할 | 비고 |
 | ---- | ---- | ---- |
-| `/grilling` + `/grill-me` | skill + command | 빌드 전 플랜·설계를 적대적으로 검증하는 인터뷰. 설계 트리를 가지별로 내려가며 의존성을 하나씩 해소하고, 질문마다 추천 답을 제시하되 **한 번에 하나씩** 묻는다. 공유 이해에 도달하기 전엔 플랜을 실행하지 않음. `/grill-me`는 `/grilling` 세션을 트리거하는 얇은 명령 (자동 호출 비활성). **[Matt Pocock](https://github.com/mattpocock)의 grilling 스킬을 그대로 차용** — plan grilling 인터뷰가 필요할 때 쓰라고 넣어둔 것 |
-| `imagegen` | skill | Codex CLI built-in `image_gen`을 메인 세션이 직접 오케스트레이션하는 thin orchestrator. 2~3개 질문으로 brief 합의 후 `codex exec` 백그라운드 호출 + Monitor 폴링, 결과는 `codex-image/`에 저장. **raster 전용** — SVG/벡터·코드 생성 금지 |
-| `/organize-claude-md` | skill + command | CLAUDE.md를 Lazy Loading 참조 구조 + 프레임워크 특화 템플릿 + Mermaid 아키텍처로 재구성. Monorepo 분기 + CHANGELOG 분리 + ADR 자동 생성 안내. Spring Boot / Vue / Nuxt / React / Next.js / Flutter / NestJS / FastAPI / Django / Go 특화 스캔 |
+| **`/harness-workflow <KEY>`** | 풀사이클 유일 진입점 — 단계 결정표 + 산출물 경로 + 게이트 조건. 상세는 `references/{start,clarify,gate,parallel-modes}.md` lazy-load | 구 `/jira-start`·`/jira-clarify`·`/jira-test`·`/jira-commit`·`/harness-resume` 폐기 — 트리거 키워드("커밋해줘" 등)를 이 스킬이 흡수, 해당 **단계만** 수행 |
+| `/jira-create` | 자연어/문서 → 단일 이슈 또는 에픽→이슈→하위 계층 일괄 등록 | 워크플로 시작 전 |
+| `/jira-plan <KEY>` | dev-guide MD 생성 (스택 페르소나·Dynamic Workflow recon) | ③ 단계. §5 병렬 가이드는 **Workflow 레인 표**(모델 명시 필수) |
+| `/harness-plan <KEY>` | Sprint Contract (DoD·Verify Targets·인간 게이트) | ④ 단계 |
+| `/jira-compile <KEY>` | dev-guide + contract → `phases/<KEY>/index.json` + 자기완결 step*.md 컴파일. ac(실행 커맨드만)·probe(anti-gaming)·touched_files·model 티어링·인간게이트 blocked 선언 | ⑤ 단계 — **대형 이슈·무인 opt-in** (소형은 attended 가 정량적으로 유리) |
+| `/jira-execute <KEY>` | dev-guide 기반 구현. 병렬 = dynamic Workflow 레인 | ⑥ attended 경로 |
+| `/jira-complete <KEY>` | 최종 검증 + QA 전환 + closure ingest·wiki-lint 자동 chain | ⑨ 단계 |
+
+### Harness Engineering (4)
+
+| 스킬 | 역할 | 호출 시점 |
+| ---- | ---- | --------- |
+| `/harness-setup` | 스택 감지 → 에이전트/hooks 3종/runtime 프로비저닝 (멱등). **V6 게이트 실차단 스모크** 내장. upgrade scope 는 legacy 결함(구 `exit 1` 게이트·Stop hook 배선·사장된 metrics)을 감지해 교체 제안 | 새 프로젝트 합류 시 |
+| `/harness-review` | 프로젝트별 전문 에이전트 fan-out + aggregate verdict (PASS/ITERATE/ESCALATE) | ⑦ 단계 리뷰 루프 |
+| `/harness-gate` | 커밋 직전 최종 게이트 (verdict + 빌드/타입체크/린트) | ⑧ gate 단계 내부 |
+| `/harness-shadow` / `/harness-score` | baseline 비교 lift 측정 / post-merge VALID·INVALID 채점 | 주기적 |
+
+### Headless Runner (`runner/`)
+
+무인 실행기 템플릿 — 프로젝트의 `scripts/` 로 복사해 쓴다. **"모델은 코드만 쓴다"** 가 계약: 검증과 commit 은 전부 러너가 결정론적으로 수행한다.
+
+| 파일 | 역할 |
+| ---- | ---- |
+| `harness-execute.py` | step 러너 — fresh `claude -p`(stdin 프롬프트·`--disallowedTools` 예방층·per-step `--model` 티어링) → **4중 게이트**: ⓐ AC 커맨드 러너가 직접 재실행 ⓑ probe expect 정규식 ⓒ git diff 가 선언 범위 안인지 (동시 세션의 사전 dirty 파일은 baseline 격리) ⓓ FORBID 재매칭(diff 추가 라인만 — 산문 오발 방지) → 통과 시에만 러너가 commit. 재시도 = 에러 주입 fresh 세션 ×3. `index.json` 이 재개 SSoT (첫 pending 부터) |
+| `test_harness_execute.py` | 러너 자체 테스트 22케이스 (`python runner/test_harness_execute.py`) |
+| `codex-review.sh` | Codex adversarial 표준 래퍼 — stdin 봉인(`< /dev/null`, openai/codex #20919 deadlock 차단)·출력 파일화·hard timeout+무진행 watchdog·프로세스 트리 kill(orphan diff-kill)·호출 계측 로그. **exit 42 = 폴백 계약**: Claude adversarial(opus skeptic)로 자동 대체 — 파이프라인 가용성을 Codex 와 분리 |
+| `_always.example.md` | step 세션 공통 주입용 프로젝트 NEVER 요약 예시 (`phases/_always.md` 로 배치) |
+
+### LLM Wiki — 영구 지식 자산화 (3 + 1 SSoT)
+
+| 스킬 | 역할 | 호출 시점 |
+| ---- | ---- | --------- |
+| `/jira-ingest` | dev-guide 생성/완료마다 `docs/INDEX.md` + `docs/LOG.md` + ADR/sprint cross-reference 증분 갱신 | `/jira-plan`·`/jira-complete` 자동 chain |
+| `/llm-wiki` | 임의 정보원(웹·PDF·책·이미지·코드 리포) build-time 합성. 원본 보존 + wikilink 그래프 | 자연어 트리거 |
+| `/wiki-lint` | 14가지 정합성 체크 (orphan/stale/broken xref/Jira 불일치 등) | `/jira-complete` 자동 chain 또는 명시 호출 |
+| [`_wiki-schema.md`](skills/_wiki-schema.md) | `jira-ingest` ↔ `wiki-lint` 공유 SSoT | — |
+
+### 코드베이스 분석·리팩토링 (3)
+
+| 스킬 | 역할 |
+| ---- | ---- |
+| `/codebase-ai-readiness` | 7-카테고리 100점 루브릭 감사 → JSON 점수표 + HTML 대시보드 + ROI 액션 리스트 |
+| `/graphify` | 임의 input → knowledge graph → HTML/JSON/Obsidian/Neo4j 내보내기 |
+| `/spring-boot-refactor` | DDD·CQRS·Read/Write 분리·N+1 자동 분석·제안 |
+
+### 부가 스킬·명령어 (3)
+
+| 항목 | 역할 |
+| ---- | ---- |
+| `/grilling` + `/grill-me` | 빌드 전 플랜 적대 검증 인터뷰 — **한 번에 하나씩** 질문. 워크플로 ② grill 단계가 이걸 쓴다. **[Matt Pocock](https://github.com/mattpocock)의 grilling 스킬 차용** |
+| `imagegen` | Codex CLI `image_gen` thin orchestrator (raster 전용) |
+| `/organize-claude-md` | CLAUDE.md Lazy Loading 재구성 + 프레임워크 특화 스캔 |
 
 ### 공통 컨벤션 (SSoT)
 
-여러 스킬이 공유하는 운영 규약. 단일 인스턴스만 돌릴 땐 신경 쓰지 않아도 되지만, 하위 작업 묶음이나 다중 부모 동시 실행에 들어가면 이 두 문서가 진실의 원천이다.
-
 | 문서 | 역할 |
 | ---- | ---- |
-| [`_subtasks-convention.md`](skills/_subtasks-convention.md) | 부모 이슈 1개 + 하위 N개를 한 fan-out 단위로 처리하는 `--subtasks` 모드 SSoT. 산출물은 **부모 귀속**, 하위는 **트래킹 미러**. `harness-workflow --subtasks`가 자식 스킬 전부에 flag 자동 전파, 부모에 subtasks 없으면 일반 모드 폴백 |
-| [`harness-workflow/parallel-fanout.md`](skills/harness-workflow/parallel-fanout.md) | `/harness-workflow <KEY1> <KEY2> …` 다중 부모 **2-tier 병렬** 격리·직렬화·머지·복구 규칙. Tier-1 worktree 격리 + Tier-2 teammate fan-out. 진입 게이트 10조건·머지 순서·승인 게이트 직렬화·Flyway V번호 할당표 명문화 |
+| [`harness-workflow/references/parallel-modes.md`](skills/harness-workflow/references/parallel-modes.md) | 병렬 2모드 SSoT — ① 단일이슈 2레인(BE=opus/FE=sonnet) ② 다중부모 worktree fan-out(충돌 매트릭스·클러스터링). 모델 티어링 운용 규칙 3개(전 `agent()` model 명시 / 웨이브 시작 스모크 프로브 / 최상위 모델 구현 레인은 사유 필수) |
+| [`_subtasks-convention.md`](skills/_subtasks-convention.md) | Jira 하위이슈 **미러 규칙** (전이 동기화·짧은 댓글·commit SHA 인용). 구 `--subtasks` 플래그 표면은 폐지 — 워크플로가 플래그 없이 수행 |
+| [`_stack-detection.md`](skills/_stack-detection.md) · [`_harness-guard.md`](skills/_harness-guard.md) | 스택 감지/페르소나/검증 명령 단일표 · HARNESS_MODE 가드 정책 |
 
-## 🆕 What's New
+## 🆕 What's New — v2 대개편 (2026-07, ADR-106)
 
-- **`/grilling` + `/grill-me` 추가** — 빌드 전 플랜·설계를 한 번에 하나씩 적대적으로 파고드는 인터뷰 스킬. 공유 이해에 도달하기 전까지 실행을 막아 `jira-plan`·`harness-plan` 진입 전 요구사항을 벼린다. 이 스킬은 본인 창작물이 아니라 **[Matt Pocock](https://github.com/mattpocock)의 grilling 스킬을 그대로 가져온 것** — plan grilling 이 필요할 때 쓰려고 포함했다.
-- **Agent Teams — v2.1.178+ 정합 + 환경 가드** — `TeamCreate`/`TeamDelete` 제거(v2.1.178)에 맞춰 `jira-execute §4A`·`parallel-fanout` 을 **자연어 teammate spawn** 으로 전환하고 **환경 분기 가드**를 도입: interactive `claude` 터미널은 Agent Teams(teammate self-claim + SendMessage), SDK/통합앱/CI 는 `§4A-FB` sub-agent fan-out 으로 폴백. 더불어 `harness-*` 의 비표준 `triggers:` frontmatter 필드를 제거하고 키워드를 `description` 에 흡수(자동 호출 신뢰도 회복).
-- **`/jira-plan` — Dynamic Workflow 모드** — 이슈 분석 시 Claude Code **v2.1.154+** 의 `Workflow` 툴로 단방향 fan-out + verify 엔진을 범용·조건부로 적용해 dev-guide 생성 흐름을 강화. 전면 대체가 아니라 plan PoC scope로 흡수하며, Workflow 미지원·구버전이면 인라인 모드로 자동 폴백 (자세히는 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조).
-- **`/harness-workflow` — 모드 결정 트리 + 멀티부모 병렬** — 단일/`--subtasks`/다중 부모를 자동 판별하는 결정 트리. `<KEY1> <KEY2> …`로 여러 부모를 git worktree 격리해 2-tier(Tier-1 워크플로 + Tier-2 teammate)로 동시 실행하며, 머지 순서·승인 게이트·Hook race를 orchestrator가 직렬화.
-- **`/graphify` — `references/` 리팩터 + 출력 확장** — 번들을 `references/`로 정리하고 산출물을 Obsidian·MCP·Neo4j·wiki 내보내기 + watch(증분 갱신)까지 확장.
-- **`/llm-wiki` — `references/` + `scripts/` 번들화** — Karpathy 2026-04 gist 패턴 적용. 모드 자동 추론(ingest/query/lint), 원본 보존 + build-time 합성 원칙 정착.
-- **`/wiki-lint` — 14 rules 전체 정의 + auto-patch** — L01~L15 규칙 전체 명문화, L14(Jira closure mismatch) + L15(coverage) 추가, JSON CI 출력 모드. `_wiki-schema.md`(SSoT) auto-patch로 스키마 정합성 자동 보정.
+- **명령 표면 9 → 유일 진입점** — `/jira-start`·`/jira-clarify`·`/jira-test`·`/jira-commit`·`/harness-resume` 폐기. 내용은 `harness-workflow/references/` 로 강등(lazy-load), 재개는 상태 파일(`workflow-state.json` / `phases/<KEY>/index.json`) 직독으로 일원화. 문서-실무 괴리(실무는 이미 grill→plan→2레인→리뷰→게이트로 진화)를 표면이 따라간 것.
+- **review-gate 물리화** — 구 `exit 1` 이 공식 hook 시맨틱상 **비차단**이었음을 발견·수정. 신판 = `permissionDecision:"deny"` JSON + 2차 하드닝(jq/PCRE 명령 추출·`git -C` 등 토큰 판정·verdict anchor 파싱·fail-closed). 시뮬레이션 8케이스 + 실차단 실증.
+- **Agent Teams → dynamic Workflow 확정** — 실측 결함 4건(전원 게이트 무시 직진·worker hang·모델 오버라이드 미적용 전원 최상위 모델 상속 2회)으로 teammate 방식 폐기. `jira-execute` §4A 재작성, `parallel-fanout.md` → `references/parallel-modes.md` 로 대체.
+- **Headless Runner (신규)** — `/jira-compile` + `runner/harness-execute.py`. 실전 E2E 검증: 1차 시도에서 probe 가 Windows CRLF 실결함을 잡아 거부 → 에러 주입 fresh 재시도에서 모델이 자가 진단·수정 → 러너 단독 commit (121s). 실패 경로(재시도 소진 → error·원인 보존·비용 누적)까지 실증. 가드레일은 전량 주입이 아니라 wiki cross-ref **선별 주입**(실측 ~1.3%).
+- **Codex adversarial 래퍼 (신규)** — stdin non-TTY deadlock(openai/codex #20919)으로 32분 hang 나던 것을 래퍼로 원천 차단 + exit 42 폴백 계약. 첫 실계측 OK(492s/178KB, hang 0), TIMEOUT 강제 테스트로 프로세스 트리 kill 까지 검증.
+- **harness-setup v2** — 신규 프로젝트에 구 결함(exit-1 게이트·Stop hook·사장 metrics)을 복제하던 템플릿 전면 교체 + 배포 직후 **V6 게이트 실차단 스모크** 절차 신설. upgrade scope 가 legacy 를 감지해 교체 제안.
 
-## ⚙️ Dynamic Workflow & ultracode (선택)
+## ⚙️ Dynamic Workflow
 
-`/jira-plan` 은 영향 범위가 넓은 이슈에서 Claude Code 의 **Workflow 툴(Dynamic Workflows)** 로 *코드 + 위키 + 이슈 + memory* 를 멀티모달 fan-out → structured map → dev-guide 초안 → 적대적(adversarial) 검증까지 한 번에 돌리는 **Dynamic Workflow 모드 (A)** 를 옵션으로 지원한다. 조건 미충족이거나 Workflow 가 비활성이면 메인 세션이 직접 수행하는 **인라인 모드 (B)** 로 자동 폴백 — 구버전·미지원 환경에서도 깨지지 않는다.
+`/jira-plan` 은 영향 범위가 넓은 이슈에서 Claude Code **Workflow 툴**로 *코드 + 위키 + 이슈 + memory* 멀티모달 fan-out → dev-guide 초안 → 적대 검증까지 도는 **Dynamic Workflow 모드**를 지원한다 (미지원 환경은 인라인 폴백). 구현·리뷰 병렬도 같은 엔진 — `parallel-modes.md` 참조.
 
-### 버전 요구사항
+| 기능 | 최소 버전 | 미충족 시 |
+| ---- | --------- | --------- |
+| Workflow 툴 | Claude Code **v2.1.154+** (기본 활성) | 인라인 모드 자동 폴백 |
+| Headless Runner | `claude` CLI + Python 3.10+ | attended 경로만 사용 |
 
-| 기능 | 최소 버전 | 활성화 | 미충족 시 |
-| ---- | --------- | ------ | --------- |
-| **Workflow 툴 (Dynamic Workflows)** — `jira-plan` 모드 (A) | Claude Code **v2.1.154+** (2026-05-28) | 기본 활성 (별도 플래그 불필요) | `jira-plan` 인라인 모드 (B) 로 자동 폴백 |
-| **Agent Teams** — `jira-execute §4A` / `parallel-fanout` Tier-1·2 | **interactive `claude` 터미널 전용**, v2.1.178+ (`TeamCreate` 없이 자연어 spawn) | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode` | **SDK/통합앱/CI 는 `§4A-FB` sub-agent fan-out 으로 폴백** (실험적·기본 비활성) |
-
-> 나머지 모든 스킬(Jira 사이클·Harness 리뷰·LLM Wiki)은 위 기능 없이도 동작한다. 버전 게이트는 **Dynamic Workflow / 병렬 fan-out 최적화 경로에만** 적용된다.
-
-### ultracode
-
-**ultracode** 는 켜져 있으면(세션의 system-reminder 로 확인) "모든 실질적 작업에 대해 기본으로 Workflow 를 작성·실행" 하도록 만드는 Claude Code 모드다 — 토큰 비용을 제약으로 두지 않고 최대한 철저한 fan-out + 검증을 지향한다. Dynamic Workflow 모드 (A) 와 같은 엔진을 전역 기본값으로 끌어올리는 스위치라고 보면 된다.
-
-> ⚠️ **전역 ON 은 권장하지 않는다.** Harness 를 `HARNESS_MODE=auto` 로 함께 쓰면 ultracode 가 워크플로우 **승인 게이트를 무력화**(프롬프트 자동 스킵)하고 토큰만 폭증한다. 이 스킬셋의 권장 방향은 ultracode 전역 활성 대신, fan-out + verify 엔진을 **understand(plan) / audit(repo-wide) / review(diff)** 3개 scope 로만 **선택 적용**하는 것이다 — `jira-plan` 의 Dynamic Workflow 모드 (A) 가 그 understand scope 구현이다.
+> ultracode 전역 ON 은 비권장 — `HARNESS_MODE=auto` 와 함께 쓰면 승인 게이트가 무력화되고 토큰만 폭증한다. fan-out+verify 엔진은 understand(plan)/audit(repo-wide)/review(diff) scope 로 선택 적용.
 
 ## 🚀 빠른 시작
 
-**(a) 기본 Jira 사이클** — 슬래시 명령을 한 단계씩, 자동 chain은 알아서 붙는다.
-
-```
-/jira-create                       (요구사항/문서 → 이슈 등록)
-  → /jira-start PROJ-123
-    → /jira-clarify PROJ-123       (요구사항 흐릿하면)
-      → /jira-plan PROJ-123        ─┐  자동 chain
-                                    ├─ /jira-ingest (docs/INDEX.md 갱신)
-        → /jira-execute PROJ-123
-          → /jira-test PROJ-123
-            → /jira-commit PROJ-123
-              → /jira-complete PROJ-123 ─┐  자동 chain
-                                         ├─ /jira-ingest (최종 상태 반영)
-                                         └─ /wiki-lint  (high severity health check)
-```
-
-**(b) `/harness-workflow` 한 방** — 전 과정을 오케스트레이터에 위임.
+**(a) 풀사이클 한 방**
 
 ```
 /harness-workflow PROJ-123
-
-# 부모 + 하위 이슈를 한 묶음으로:
-/harness-workflow PROJ-7 --subtasks
 ```
 
-**(c) 멀티부모 병렬** — worktree 격리로 여러 부모를 동시에 (진입 게이트 10조건 충족 필수).
+**(b) 단계만 골라 쓰기** — 폐기 명령의 키워드는 워크플로가 흡수한다. "커밋해줘" → gate 단계만, "이어서 작업" → 재개 절차만.
+
+**(c) 멀티부모 병렬** — worktree 격리 + 충돌 매트릭스 사전 산출 (`references/parallel-modes.md`).
 
 ```
-/harness-workflow PROJ-214 PROJ-215 PROJ-216 --subtasks
-  # → orchestrator 가 3개 git worktree 격리 + Agent fan-out
-  # → 충돌 매트릭스 + Flyway V 번호 할당표 사전 확정 필수
-  # → 자세한 안전 가이드: skills/harness-workflow/parallel-fanout.md
+/harness-workflow PROJ-214 PROJ-215 PROJ-216
+```
+
+**(d) 대형 이슈 무인 실행 (opt-in)**
+
+```
+/harness-workflow PROJ-500          # ⑤ compile 까지 진행 후
+python scripts/harness-execute.py phases/PROJ-500     # 러너가 step 루프 (blocked/error 에서 정지)
 ```
 
 ## 설치
-
-스킬은 `~/.claude/skills/<skill-name>/`, 슬래시 명령어는 `~/.claude/commands/<name>.md` 하위에 위치해야 Claude Code가 인식한다.
 
 ```bash
 git clone https://github.com/bigbulgogiburger/claude_jira_harness.git
 cd claude_jira_harness
 
-# 스킬
+# 스킬 (user-scope)
 mkdir -p ~/.claude/skills
 cp -R skills/* ~/.claude/skills/
 
-# 슬래시 명령어
-mkdir -p ~/.claude/commands
-cp -R commands/* ~/.claude/commands/
+# (선택) headless runner — 사용할 프로젝트의 scripts/ 로
+cp runner/harness-execute.py runner/test_harness_execute.py runner/codex-review.sh <프로젝트>/scripts/
+cp runner/_always.example.md <프로젝트>/phases/_always.md   # 프로젝트에 맞게 편집
 ```
 
 또는 심볼릭 링크로 (이후 `git pull` 만으로 즉시 반영):
@@ -244,28 +196,25 @@ cp -R commands/* ~/.claude/commands/
 for d in skills/*/; do
   ln -s "$(pwd)/$d" "$HOME/.claude/skills/$(basename "$d")"
 done
-for f in commands/*.md; do
-  ln -s "$(pwd)/$f" "$HOME/.claude/commands/$(basename "$f")"
-done
 ```
+
+기존 사용자 **업그레이드 주의**: 폐기된 5개 스킬 디렉토리(`jira-start`·`jira-clarify`·`jira-test`·`jira-commit`·`harness-resume`)가 `~/.claude/skills/` 에 남아 있으면 삭제할 것 (트리거 충돌 방지). 프로젝트별 hooks 는 `/harness-setup upgrade` 로 legacy 게이트를 교체.
 
 ## 요구사항
 
-- Claude Code (CLI 또는 데스크톱 앱) — 기본 Jira 사이클·Harness·LLM Wiki 는 버전 무관 동작
-- `/jira-plan` Dynamic Workflow 모드 (선택): `Workflow` 툴 = Claude Code **v2.1.154+** (기본 활성). 구버전이면 인라인 모드로 자동 폴백 — 아래 **⚙️ Dynamic Workflow & ultracode** 섹션 참조
-- 멀티부모 병렬 fan-out / `jira-execute` 병렬 구현 (선택): Claude Code **v2.1.32+** + `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (실험적·기본 비활성)
-- Jira 사용 시: MCP Atlassian 서버가 활성화되어 있어야 함 (`mcp__atlassian__*` 도구 사용)
-- Harness 채점/리뷰는 프로젝트 루트에 `.claude/runtime/` 쓰기 권한 필요
-- LLM Wiki (`/jira-ingest`, `/llm-wiki`, `/wiki-lint`) 사용 시: 프로젝트 루트에 `docs/` 디렉토리 쓰기 권한
-- `imagegen` 사용 시: OpenAI Codex CLI 설치 + ChatGPT Plus 로그인 (built-in `image_gen` 무료 한도 사용). 유료 fallback 은 `OPENAI_API_KEY` 명시 요청 시에만.
-- `/codebase-ai-readiness` 사용 시: 감사 대상 레포 루트에 `.ai-readiness/` 쓰기 권한
-- `/graphify` 사용 시: Python 환경 (`graphify-out/` 산출물 생성)
+- Claude Code (CLI 또는 데스크톱 앱) — 기본 사이클·Harness·LLM Wiki 는 버전 무관 동작
+- Dynamic Workflow (선택): Claude Code **v2.1.154+** — 미지원이면 인라인 폴백
+- Headless Runner (선택): Python 3.10+ · `claude` CLI · Git Bash(Windows)
+- Jira 사용 시: MCP Atlassian 서버 (`mcp__atlassian__*`)
+- Harness: 프로젝트 루트 `.claude/runtime/` 쓰기 권한 · LLM Wiki: `docs/` 쓰기 권한
+- Codex 래퍼 (선택): OpenAI Codex CLI — 없거나 죽어도 폴백 체인이 리뷰를 대체한다
+- `imagegen`: Codex CLI + ChatGPT 로그인 / `/graphify`: Python 환경
 
 ## Author
 
 **dhpyun** — [@bigbulgogiburger](https://github.com/bigbulgogiburger)
 
-본 스킬 셋의 설계·구현·SSoT 문서·운영 패턴 (jira-*, harness-*, llm-wiki / wiki-lint, parallel-fanout, organize-claude-md, _subtasks-convention) 일체가 본인 작품이다. 실제 사내 Spring Boot 3.3.8 / Vue 3 / Java 21 풀스택 프로젝트 운영 중 W1~W7 sprint 사이클에서 검증·정착됐다.
+본 스킬 셋의 설계·구현·SSoT 문서·운영 패턴 (jira-*, harness-*, headless runner, llm-wiki / wiki-lint, parallel-modes, organize-claude-md, _subtasks-convention) 일체가 본인 작품이다. 실제 사내 Spring Boot 3.3.8 / Vue 3 / Java 21 풀스택 프로젝트의 스프린트 사이클에서 검증·정착됐고, v2 개편은 실측 기반(게이트 시뮬레이션·러너 E2E 파일럿·Codex 계측)으로 확정했다.
 
 ## 라이선스
 
@@ -273,4 +222,4 @@ MIT — `LICENSE` 참조.
 
 ## 비고
 
-원본은 사내 사용 목적으로 작성됐고, 공개 배포를 위해 모든 사내 식별자(프로젝트 키, 마이크로서비스 명, 도메인 클래스/필드, 커스텀 어노테이션)를 중립적인 e-commerce 예시로 치환했다. 본인 환경에 맞게 `PROJ-`, `order-service`, `catalog-service`, `order-admin` 등의 placeholder를 자유롭게 바꿔 사용하면 된다.
+원본은 사내 사용 목적으로 작성됐고, 공개 배포를 위해 모든 사내 식별자(프로젝트 키, 마이크로서비스 명, 도메인 클래스/필드, 커스텀 어노테이션)를 중립적인 예시(`PROJ-`, `backend/`, `frontend/` 등)로 치환했다. 본인 환경에 맞게 placeholder 를 바꿔 사용하면 된다.

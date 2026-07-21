@@ -50,13 +50,13 @@ Anthropic Claude Code 베스트 프랙티스를 종합한 산업 표준 기반�
 ### 기본 사용 (현재 디렉토리)
 
 ```bash
-python "C:/Users/DBInc/.claude/skills/codebase-ai-readiness/audit.py"
+python "~/.claude/skills/codebase-ai-readiness/audit.py"
 ```
 
 ### 다른 레포 감사
 
 ```bash
-python "C:/Users/DBInc/.claude/skills/codebase-ai-readiness/audit.py" --path D:/path/to/repo
+python "~/.claude/skills/codebase-ai-readiness/audit.py" --path D:/path/to/repo
 ```
 
 ### 출력 디렉토리 지정

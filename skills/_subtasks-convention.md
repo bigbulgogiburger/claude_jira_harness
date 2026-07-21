@@ -2,13 +2,17 @@
 
 > **단일 출처(single source of truth)** — 모든 jira-* / harness-* 스킬이 본 문서를 참조.
 > 본 문서를 수정하면 즉시 모든 스킬의 동작이 바뀐다.
+>
+> ⚠️ **2026-07-20 supersession (ADR-106, harness v2 설계 §3·§7)**:
+> - `--subtasks` **정식 실행 모드는 표면 폐지** — 실무에서 매번 일반 모드로 폴백됐고, 병렬 실행 단위는 `harness-workflow/references/parallel-modes.md` 의 2모드(단일이슈 2레인 / 다중부모 fan-out, **dynamic Workflow**)가 표준. **Agent Teams 신규 사용 금지** — §3 매트릭스의 Agent Teams 서술은 역사 기록으로만 남김.
+> - 폐기된 스킬 행(jira-start/clarify/test/commit)은 harness-workflow 의 해당 **단계**가 같은 규칙(하위 = 트래킹 미러: 전이 동기화·1~3줄 댓글·commit SHA 인용)을 수행한다 — §2 핵심 원칙·§5 댓글 템플릿은 계속 유효.
 
 ## 1. `--subtasks` 모드란?
 
 부모 Jira 이슈 1개 + 그 산하 하위 작업(sub-task) N개를 **한 묶음의 fan-out 단위**로 처리하는 모드.
 
 진입 조건:
-- 사용자가 명시적으로 `--subtasks` 플래그 전달 (예: `/jira-start STD-7 --subtasks`)
+- 사용자가 명시적으로 `--subtasks` 플래그 전달 (예: `/jira-start PROJ-7 --subtasks`)
 - 부모 이슈의 `subtasks` 필드에 하위 키 1개 이상 존재
 
 진입 조건 미충족 시: 일반(부모만) 모드로 폴백. `--subtasks` 가 무의미한 단계도 일반 모드로 동작.
@@ -93,25 +97,19 @@ ELSE:
 - **transition 권한 부족** → 댓글만 추가하고 계속 (하위 transition 실패 → 부모 ✅)
 - **subtasks 필드가 비어있음** → 일반 모드로 폴백 + 안내 메시지
 
-## 7. harness-workflow 의 flag 전파
+## 7. harness-workflow 의 하위이슈 미러 전파 (2026-07-20 재작성 — 구 flag 전파 의사코드 폐기)
 
-`harness-workflow <KEY> --subtasks` 호출 시:
+`--subtasks` 플래그 표면은 폐지됐다(ADR-106). 부모 이슈에 Jira 하위이슈가 있으면 harness-workflow 가 **플래그 없이** 각 단계에서 하위 미러(§2 원칙·§5 템플릿)를 수행한다:
 
 ```
-모든 자식 Skill 호출에 --subtasks 자동 부착:
-  Skill(jira-start, "<KEY> --subtasks")
-  Skill(jira-clarify, "<KEY> --subtasks")
-  Skill(jira-plan, "<KEY> --subtasks")
-  Skill(harness-plan, "<KEY> --subtasks")
-  Skill(jira-execute, "<KEY> --subtasks")
-  Skill(harness-review, "<KEY> --subtasks")
-  Skill(jira-test, "<KEY>")          # 통합 검증 — flag 불필요
-  Skill(harness-gate, "<KEY>")       # 통합 게이트 — flag 불필요
-  Skill(jira-commit, "<KEY> --subtasks")
-  Skill(jira-complete, "<KEY> --subtasks")
+start 단계    : 모든 하위 In Progress 전환 + 1줄 댓글 (references/start.md)
+plan          : Skill(jira-plan, "<KEY>") — slice 분리가 필요하면 dev-guide 안에서 레인으로 설계
+execute       : 병렬은 parallel-modes.md 2모드(Workflow 레인) — 하위이슈≠레인 (레인은 touched-files 기준)
+gate 단계     : commit 후 모든 하위에 commit SHA 인용 1줄 댓글 (references/gate.md)
+Skill(jira-complete, "<KEY>") : 모든 하위 QA 전이 + 1줄 댓글 (기존 §3 행 유지)
 ```
 
-`workflow-state.json` 에 `subtasks_mode: true` + `subtasks: [...]` 기록 → 중간 재개 시에도 모드 보존.
+`workflow-state.json` 에 `subtasks: [...]` 기록 → 중간 재개 시에도 미러 대상 보존.
 
 **Wiki chain 자동 전파** (jira-ingest / wiki-lint 는 harness-workflow 가 직접 호출하지 않음 — 부모 스킬 안의 자동 chain):
 - `jira-plan` §6 → `jira-ingest` forecast 호출 시 `--subtasks` 자동 전파
@@ -133,8 +131,9 @@ ELSE:
 
 ---
 
-**Last Updated**: 2026-06-29 (jira-execute 행 — Agent Teams 도구 시퀀스를 v2.1.178+ 현행으로 정정: `TeamCreate`/`TeamDelete` 제거·`team_name` accepted-but-ignored 반영, `Agent({run_in_background:true})` + 공유 Task + `SendMessage` 패턴)
+**Last Updated**: 2026-07-20 (ADR-106 — `--subtasks` 표면 폐지·Agent Teams 금지 supersession 배너 + §7 재작성(flag 전파 의사코드 → 단계별 하위 미러). §3 매트릭스의 Agent Teams·폐기 스킬 행 서술은 **역사 기록** — 현행은 상단 배너와 §7 이 우선)
+**Previous**: 2026-06-29 (jira-execute 행 — Agent Teams 도구 시퀀스를 v2.1.178+ 로 정정 — 현재는 역사 기록)
 
 **Previous**: 2026-05-14 (jira-ingest forecast/closure 행 + wiki-lint 행 추가 — Karpathy LLM Wiki 패턴 도입. wiki-lint 는 corpus-scoped 라 `--subtasks` N/A. § 7 에 wiki chain 자동 전파 규칙 추가)
 **Previous**: 2026-05-13 (jira-execute § "--subtasks Mode" 를 Agent Teams 기반으로 재작성 — worktree 4분기 패턴 supersede)
-**Previous**: 2026-05-07 (STD-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)
+**Previous**: 2026-05-07 (PROJ-7 작업 후 신설 — 8 jira-* + harness-workflow 의 `--subtasks` 일관 처리 위해)

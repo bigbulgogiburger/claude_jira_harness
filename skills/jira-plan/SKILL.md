@@ -1,6 +1,6 @@
 ---
 name: jira-plan
-description: "jira-plan — Jira 이슈와 프로젝트 코드를 분석하여 스택 최고 개발자 페르소나로 개발 가이드 MD 파일(docs/<ISSUE-KEY>-dev-guide.md)을 생성합니다. 구현 계획이 필요할 때, '계획 세워줘', '개발 가이드 만들어줘', '플랜 짜줘', 'dev-guide 생성', '이슈 분석해줘', 'jira plan', '어떻게 구현할지 설계해줘' 등의 요청에 이 스킬을 사용하세요. /jira-start 및 /jira-clarify 이후, /jira-execute 이전에 사용합니다."
+description: "jira-plan — Jira 이슈와 프로젝트 코드를 분석하여 스택 최고 개발자 페르소나로 개발 가이드 MD 파일(docs/<ISSUE-KEY>-dev-guide.md)을 생성합니다. 구현 계획이 필요할 때, '계획 세워줘', '개발 가이드 만들어줘', '플랜 짜줘', 'dev-guide 생성', '이슈 분석해줘', 'jira plan', '어떻게 구현할지 설계해줘' 등의 요청에 이 스킬을 사용하세요. harness-workflow 의 start·grill 단계 이후, /jira-execute 이전에 사용합니다 (구 /jira-start·/jira-clarify 는 2026-07-20 폐기)."
 ---
 
 # jira-plan — Jira 이슈 분석 및 개발 가이드 MD 생성
@@ -14,7 +14,7 @@ Jira 이슈와 프로젝트 코드를 분석하여, 스택 최고 개발자 페�
 /jira-plan <ISSUE-KEY>
 ```
 
-- `ISSUE-KEY`: Jira 이슈 키 (예: SURINP-156, SCRUM-42)
+- `ISSUE-KEY`: Jira 이슈 키 (예: PROJ-156, SCRUM-42)
 
 ## Procedure
 
@@ -242,25 +242,25 @@ UPDATE ...
 
 > 이 섹션은 독립적으로 진행 가능한 작업이 2개 이상일 때만 작성합니다.
 
-### Agent Teams 구성 (권장)
+### Workflow 레인 구성 (2026-07-20 — 구 "Agent Teams 구성" supersede, Agent Teams 신규 사용 금지)
 
-> ⚠️ **이 표를 작성하면 jira-execute § 4A 가 자동으로 진입** — lead 가 `TaskCreate × N` 후 **자연어로 teammate spawn**(사용자 승인) → teammate 가 공유 Task self-claim + `SendMessage` 협업 (v2.1.178+ : `TeamCreate`/`team_name` 없이 팀 자동 형성. lead 가 `Agent()` 를 직접 도구 호출하면 sub-agent 로 회귀). **단 self-claim 협업은 interactive `claude` 터미널 전제 — SDK/통합앱/CI 환경이면 jira-execute § 4A 진입 가드가 § 4A-FB(sub-agent fan-out)로 분기한다.** 진짜 협업(teammate 간 contract 합의)이 필요 없는 disjoint fan-out 이면 § 5 섹션 자체를 작성하지 말고 Phase 를 순차 설계하세요. 자세한 패턴은 `jira-execute/SKILL.md § 4A` 의 ⚠️ 안티패턴 박스 참조.
+> ⚠️ **이 표를 작성하면 jira-execute § 4A(dynamic Workflow 병렬 모드)가 진입** — 각 행이 Workflow `agent()` 레인 1개가 된다. **모든 레인에 model 을 명시**(BE 복잡 도메인=opus / FE·기계적=sonnet — 미지정=메인 모델 상속 함정) + 웨이브 시작 시 모델 스모크 프로브. 공통 계약(DTO/interface/migration)은 Phase 0 scaffold 로 메인이 선행. 레인 간 합의가 필요 없는 disjoint fan-out 이 아니면 § 5 섹션 자체를 작성하지 말고 Phase 를 순차 설계하세요. 상세: `harness-workflow/references/parallel-modes.md`.
 
-| 역할 | 담당 범위 | subagent 타입 |
-|------|----------|---------------|
-| <역할1> | <파일/모듈> | <agent-type 또는 없음> |
-| <역할2> | <파일/모듈> | <agent-type 또는 없음> |
+| 레인 | 담당 범위 (touched files) | model | subagent 타입 |
+|------|--------------------------|-------|---------------|
+| <레인1> | <파일/모듈> | opus/sonnet | <agent-type 또는 없음> |
+| <레인2> | <파일/모듈> | opus/sonnet | <agent-type 또는 없음> |
 
 ### 작업 의존성
 
 ```
-Phase 1 (독립)  →  Phase 2 (Phase 1 완료 후)
-  ├─ Task A (teammate-1)
-  └─ Task B (teammate-2)
+Phase 0 scaffold (메인 직접)  →  Phase 1 (레인 병렬)  →  Phase 2 (Phase 1 완료 후)
+  ├─ Task A (레인-1)
+  └─ Task B (레인-2)
 ```
 
 ### 파일 충돌 방지
-<어떤 teammate가 어떤 파일을 소유하는지 명시>
+<어떤 레인이 어떤 파일을 소유하는지 명시 — 겹치면 같은 레인으로 클러스터링 또는 worktree 격리>
 ```
 
 #### 병렬 작업 가이드 작성 기준
@@ -371,6 +371,8 @@ ingest 가 skip 된 경우:
 - 이미 `docs/<ISSUE-KEY>-dev-guide.md`가 존재하면 덮어쓸지 사용자에게 확인
 
 ## --subtasks Mode
+
+> ⚠️ **2026-07-20 표면 폐지 (ADR-106)**: `--subtasks` 플래그 표면은 폐기 — 이 섹션은 하위이슈 **미러 규칙**(전이 동기화·짧은 댓글)으로만 유효하며, harness-workflow 가 플래그 없이 수행한다 (`_subtasks-convention.md` §7). slice 병렬 실행 단위는 Workflow 레인 (`harness-workflow/references/parallel-modes.md`).
 
 사용자가 `/jira-plan <KEY> --subtasks` 로 호출하고 부모 이슈에 하위 작업이 있으면, 부모 dev-guide 처리 후 **추가로**:
 

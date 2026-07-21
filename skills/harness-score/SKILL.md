@@ -19,12 +19,12 @@ description: "Post-merge VALID/INVALID 채점 — 머지 후 7일 이상 경과�
 
 ### Step 1. 대상 이슈 확인
 
-사용자가 인자로 이슈 키 전달 (예: `/harness-score SURINP-190`). 없으면 `.claude/runtime/archive/` 디렉토리에서 가장 최근 아카이브 이슈 제시.
+사용자가 인자로 이슈 키 전달 (예: `/harness-score PROJ-190`). 없으면 `.claude/runtime/archive/` 디렉토리에서 가장 최근 아카이브 이슈 제시.
 
 ### Step 2. 머지 시점 확인 (7일 게이팅)
 
 ```bash
-git log --all --pretty=format:"%H %ci %s" | grep -i "SURINP-XXX\|feature/SURINP-XXX" | head -5
+git log --all --pretty=format:"%H %ci %s" | grep -i "PROJ-XXX\|feature/PROJ-XXX" | head -5
 ```
 
 머지 커밋의 committer date 추출. 현재 시각과 비교:
@@ -35,7 +35,7 @@ git log --all --pretty=format:"%H %ci %s" | grep -i "SURINP-XXX\|feature/SURINP-
 ### Step 3. aggregate-verdict.md 로드
 
 경로 탐색 순서:
-1. `.claude/runtime/archive/SURINP-XXX/aggregate-verdict.md` (머지된 이슈는 보통 여기)
+1. `.claude/runtime/archive/PROJ-XXX/aggregate-verdict.md` (머지된 이슈는 보통 여기)
 2. `.claude/runtime/aggregate-verdict.md` (archive 전)
 
 파일의 Metadata + Blockers + Advisories 추출.
@@ -142,7 +142,7 @@ bash .claude/runtime/harness-metrics/aggregate.sh
 
 ```
 ════════════════════════════════════════════
-  Post-merge Scoring Complete — SURINP-190
+  Post-merge Scoring Complete — PROJ-190
 
   Blockers:   1 VALID / 1 INVALID (n=2)
   Advisories: 1 ACTIONED / 2 not actioned (n=3)

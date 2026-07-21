@@ -61,7 +61,7 @@ categories:
 
 cross_refs:
   adr_pattern: "\\bADR-\\d+\\b"
-  issue_pattern: "\\b<ISSUE_PREFIX>-\\d+\\b"   # 예: STD- / SURINP- / SCRUM-
+  issue_pattern: "\\b<ISSUE_PREFIX>-\\d+\\b"   # 예: STD- / PROJ- / SCRUM-
 
 closure_signals:
   jira_qa_transition: true
@@ -113,7 +113,7 @@ claude_md_integration:
     | Wiki Schema | wiki 카테고리·정책 (사용자 편집)          | docs/INDEX-SCHEMA.md  |
 ```
 
-ISSUE_PREFIX 는 첫 호출 시 프로젝트의 Jira 이슈 키 prefix 로부터 추론 (예: `STD`, `SURINP`, `SCRUM`).
+ISSUE_PREFIX 는 첫 호출 시 프로젝트의 Jira 이슈 키 prefix 로부터 추론 (예: `STD`, `PROJ`, `SCRUM`).
 
 ## 3. dev-guide YAML frontmatter 표준
 
@@ -121,14 +121,14 @@ ISSUE_PREFIX 는 첫 호출 시 프로젝트의 Jira 이슈 키 prefix 로부터
 
 ```yaml
 ---
-issue: STD-247
+issue: PROJ-247
 title: W5 QA 라우트 가드 권한 침투 spec
 type: single                # single | composite | slice
 status: planned             # planned | closed | abandoned
 week: W5
 track: QA
-parent: STD-206             # null if single
-siblings: [STD-245, STD-246]
+parent: PROJ-206             # null if single
+siblings: [PROJ-245, PROJ-246]
 related_adrs: [ADR-021, ADR-058, ADR-060]
 persona: Vue.js Specialist
 created: 2026-05-14
@@ -164,9 +164,9 @@ closed: null
 
 | Type | 패턴 | Key 형식 | 예 |
 |------|------|---------|-----|
-| single | `STD-247-dev-guide.md` | `STD-247` | 단일 이슈 |
-| composite | `STD-10-STD-81-dev-guide.md` | `STD-10+STD-81` | 통합 (cross-track) |
-| slice | `STD-194-68-dev-guide.md` | `STD-194::STD-68` | 부모 + 슬라이스 (--subtasks) |
+| single | `PROJ-247-dev-guide.md` | `PROJ-247` | 단일 이슈 |
+| composite | `PROJ-10-PROJ-81-dev-guide.md` | `PROJ-10+PROJ-81` | 통합 (cross-track) |
+| slice | `PROJ-194-68-dev-guide.md` | `PROJ-194::PROJ-68` | 부모 + 슬라이스 (--subtasks) |
 
 **Bootstrap 휴리스틱** (frontmatter 부재 시):
 1. `STD-<N>-dev-guide.md` 가 같은 디렉토리에 존재 → 두 번째 숫자는 slice
@@ -179,17 +179,17 @@ closed: null
 
 ```
 [YYYY-MM-DD HH:MM KST  <MODE>     <KEY>          <phase>] key=value key=value...
-[2026-05-14 14:32 KST  INGEST     STD-247        forecast] guide=docs/STD-247-dev-guide.md parent=STD-206 adrs=ADR-021,058,060
-[2026-05-14 18:45 KST  CLOSURE    STD-247        ] verdict=PASS commit=6c0072b touched=3 qa=2026-05-14
-[2026-05-14 18:45 KST  INGEST     STD-247        closure] index_row=updated touched=[INDEX.md,LOG.md,sprint/weeks/w5-w8.md]
-[2026-05-13 17:20 KST  INGEST     STD-246        forecast] guide=docs/STD-246-dev-guide.md parent=STD-200 adrs=ADR-029
+[2026-05-14 14:32 KST  INGEST     PROJ-247        forecast] guide=docs/PROJ-247-dev-guide.md parent=PROJ-206 adrs=ADR-021,058,060
+[2026-05-14 18:45 KST  CLOSURE    PROJ-247        ] verdict=PASS commit=6c0072b touched=3 qa=2026-05-14
+[2026-05-14 18:45 KST  INGEST     PROJ-247        closure] index_row=updated touched=[INDEX.md,LOG.md,sprint/weeks/w5-w8.md]
+[2026-05-13 17:20 KST  INGEST     PROJ-246        forecast] guide=docs/PROJ-246-dev-guide.md parent=PROJ-200 adrs=ADR-029
 [2026-05-12 09:00 KST  BOOTSTRAP  -              ] parsed=94 categories=5 warnings=2
 [2026-05-15 10:00 KST  LINT       -              ] mode=summary score=92 errors=2 warnings=7
 ```
 
 MODE 종류: `INGEST` / `CLOSURE` / `BOOTSTRAP` / `LINT` / `REFRESH` / `REBUILD-XREFS`.
 
-`grep STD-247 docs/LOG.md` → 단일 이슈의 전체 타임라인. append-only, 절대 read 하지 않음 (lint 만 스캔).
+`grep PROJ-247 docs/LOG.md` → 단일 이슈의 전체 타임라인. append-only, 절대 read 하지 않음 (lint 만 스캔).
 
 ## 7. INDEX.md 형식
 
@@ -218,8 +218,8 @@ MODE 종류: `INGEST` / `CLOSURE` / `BOOTSTRAP` / `LINT` / `REFRESH` / `REBUILD-
 ## 이슈 가이드
 | Issue | Status | Title | Week | Parent | ADRs | Siblings | Updated |
 |-------|--------|-------|------|--------|------|----------|---------|
-| STD-247 | closed | W5 QA 라우트 가드 권한 침투 spec | W5 | STD-206 | ADR-021,058,060 | STD-245,246 | 2026-05-14 |
-| STD-246 | closed | W5.1+ 사이드바 collapse persistence | W5 | STD-200 | ADR-029 | STD-247 | 2026-05-13 |
+| PROJ-247 | closed | W5 QA 라우트 가드 권한 침투 spec | W5 | PROJ-206 | ADR-021,058,060 | PROJ-245,246 | 2026-05-14 |
+| PROJ-246 | closed | W5.1+ 사이드바 collapse persistence | W5 | PROJ-200 | ADR-029 | PROJ-247 | 2026-05-13 |
 
 <!-- ingest-managed:end file=INDEX.md -->
 ```
@@ -236,8 +236,8 @@ MODE 종류: `INGEST` / `CLOSURE` / `BOOTSTRAP` / `LINT` / `REFRESH` / `REBUILD-
 
 <!-- ingest-managed:begin adr=ADR-070 -->
 ### Referenced by (auto-maintained by jira-ingest)
-- [STD-247](../STD-247-dev-guide.md) — W5 QA 라우트 가드 (2026-05-14 closed)
-- [STD-246](../STD-246-dev-guide.md) — W5.1+ 사이드바 (2026-05-13 closed)
+- [PROJ-247](../PROJ-247-dev-guide.md) — W5 QA 라우트 가드 (2026-05-14 closed)
+- [PROJ-246](../PROJ-246-dev-guide.md) — W5.1+ 사이드바 (2026-05-13 closed)
 <!-- ingest-managed:end adr=ADR-070 -->
 ```
 
@@ -312,14 +312,14 @@ PR diff 가 항상 5 파일 이내 보장.
 
 | 사용자 입력 | 추론 모드 |
 |------------|----------|
-| "STD-247 등록해줘" + dev-guide 존재 + Jira Open | forecast |
-| "STD-247 closure 처리" / "마감처리" | closure |
+| "PROJ-247 등록해줘" + dev-guide 존재 + Jira Open | forecast |
+| "PROJ-247 closure 처리" / "마감처리" | closure |
 | "wiki 처음 설정" / "INDEX 만들어줘" + INDEX 부재 | bootstrap |
-| "STD-247 다시 갱신" / "refresh" | refresh (특정 issue 재계산) |
+| "PROJ-247 다시 갱신" / "refresh" | refresh (특정 issue 재계산) |
 | "INDEX 누락분 채워줘" | backfill |
 | "cross-ref 다시 만들어줘" | rebuild-cross-refs |
 
-`harness-workflow` 가 chain 호출할 때는 자연어로 forecast/closure 명시 (예: `Skill("jira-ingest", "STD-247 forecast 모드로 ingest")`).
+`harness-workflow` 가 chain 호출할 때는 자연어로 forecast/closure 명시 (예: `Skill("jira-ingest", "PROJ-247 forecast 모드로 ingest")`).
 
 **유일한 명시 플래그**: `--subtasks` — `_subtasks-convention.md` 와 일관성. 자연어로는 부모/슬라이스 mechanical 처리 모호.
 
